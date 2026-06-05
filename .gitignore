@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Pytest
+.pytest_cache/
+
+# Entornos virtuales
+venv/
+.env
+
+# VS Code
+.vscode/
+
+# Archivos ZIP
+*.zip
+
+# Excel temporales
+~$*.xlsx
+
+# Sistema
+.DS_Store
+Thumbs.db
