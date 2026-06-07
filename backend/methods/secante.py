@@ -56,6 +56,7 @@ def _eval_iferror(eq: ParsedEquation, x: float) -> float:
 def _secant_step_k1(
     xk: float, fxk: float,
     xk_prev: float, fxk_prev: float,
+    tol: float,
 ) -> tuple[float, float, bool]:
     """
     Replica fila k=1 (fila 3 del Excel). F3 sin IFERROR.
@@ -79,13 +80,14 @@ def _secant_step_k1(
     except ZeroDivisionError:
         error_pct = 0.0
 
-    converged = error_pct < _TOLERANCE
+    converged = error_pct < tol
     return x_next, error_pct, converged
 
 
 def _secant_step_k2plus(
     xk: float, fxk: float,
     xk_prev: float, fxk_prev: float,
+    tol: float,
 ) -> tuple[float, float, bool]:
     """
     Replica filas k≥2 (filas 4+ del Excel). F con IFERROR(..., B).
@@ -117,7 +119,7 @@ def _secant_step_k2plus(
     except ZeroDivisionError:
         error_pct = 0.0
 
-    converged = error_pct < _TOLERANCE
+    converged = error_pct < tol
     return x_next, error_pct, converged
 
 
@@ -166,7 +168,7 @@ def run(
 
     # ── k=1  (fila 3) — F3 sin IFERROR ─────────────────────────────────────
     try:
-        x2, err1, conv1 = _secant_step_k1(x1, fx1, x0, fx0)
+        x2, err1, conv1 = _secant_step_k1(x1, fx1, x0, fx0, tol)
     except ZeroDivisionError as e:
         return MethodResult(
             method_name="Secante", applicable=False,
@@ -208,7 +210,7 @@ def run(
 
     for k in range(2, max_iter + 1):
         fxk = _eval_iferror(eq, xk)          # C = IFERROR(B^2-2, 0)
-        x_next, error_pct, conv = _secant_step_k2plus(xk, fxk, xk_prev, fxk_prev)
+        x_next, error_pct, conv = _secant_step_k2plus(xk, fxk, xk_prev, fxk_prev, tol)
         final_error = error_pct
 
         rows.append(SecantRow(
