@@ -31,7 +31,7 @@ from __future__ import annotations
 from openpyxl.utils import get_column_letter
 from openpyxl import Workbook
 
-from excel_styles import (
+from backend.excel.excel_styles import (
     PALETTES, MethodPalette,
     apply_header_style, apply_data_style, apply_footer_style,
     apply_label_style, apply_param_value_style,
@@ -39,7 +39,7 @@ from excel_styles import (
     ROW_HEIGHT_DEFAULT, ROW_HEIGHT_HEADER, ROW_HEIGHT_FOOTER,
     data_font, solid_fill, thin_border, default_alignment,
 )
-from sympy_to_excel import (
+from backend.core.sympy_to_excel import (
     to_excel_formula, derivative_to_excel,
     evaluate_derivative_at, expr_to_sympy,
 )

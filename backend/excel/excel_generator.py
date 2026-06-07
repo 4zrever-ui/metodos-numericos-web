@@ -33,8 +33,8 @@ from typing import Any
 
 from openpyxl import Workbook
 
-from sympy_to_excel import expr_to_sympy, to_excel_formula, derivative_to_excel
-from excel_templates import TEMPLATE_REGISTRY
+from backend.core.sympy_to_excel import expr_to_sympy, to_excel_formula, derivative_to_excel
+from backend.excel.excel_templates import TEMPLATE_REGISTRY
 
 
 # ---------------------------------------------------------------------------
