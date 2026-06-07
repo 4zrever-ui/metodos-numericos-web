@@ -103,8 +103,27 @@ def run(
     # k=0: just compute g(x0), no error
     try:
         gxk = g(xk)
-    except Exception:
-        gxk = float("nan")
+    except Exception as e:
+        print("GX =", gx)
+        print("X0 =", x0)
+        print("ERROR GX =", e)
+        return MethodResult(
+            method_name="Punto Fijo",
+            applicable=False,
+            reason=f"Error evaluando g(x): {str(e)}",
+            equation_str=eq.raw,
+            f_latex=eq.f_latex,
+            fp_latex=eq.fp_latex,
+            fpp_latex=eq.fpp_latex,
+            params_used=params_used,
+            iterations=[],
+            root=None,
+            final_error_pct=None,
+            converged=False,
+            iteration_count=0,
+            excel_sheet_name=_SHEET_NAME,
+            formula_description="xₙ₊₁ = g(xₙ)",
+        )
 
     rows.append(FixedPointRow(k=0, xk=xk, gxk=gxk, x_new=gxk, error_pct=None, converged=None))
 
@@ -114,8 +133,27 @@ def run(
 
         try:
             gxk = g(xk)
-        except Exception:
-            break
+        except Exception as e:
+            print("GX =", gx)
+            print("X0 =", x0)
+            print("ERROR GX =", e)
+            return MethodResult(
+                method_name="Punto Fijo",
+                applicable=False,
+                reason=f"Error evaluando g(x) en iteración {k}: {str(e)}",
+                equation_str=eq.raw,
+                f_latex=eq.f_latex,
+                fp_latex=eq.fp_latex,
+                fpp_latex=eq.fpp_latex,
+                params_used=params_used,
+                iterations=rows,
+                root=None,
+                final_error_pct=None,
+                converged=False,
+                iteration_count=len(rows) - 1,
+                excel_sheet_name=_SHEET_NAME,
+                formula_description="xₙ₊₁ = g(xₙ)",
+            )
 
         if not math.isfinite(gxk):
             break

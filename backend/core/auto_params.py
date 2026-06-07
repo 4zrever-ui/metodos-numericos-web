@@ -84,68 +84,38 @@ def _generate_gx_candidates(eq: ParsedEquation, root: float) -> list[dict]:
     """
     Generate algebraically equivalent g(x) from f(x) = 0.
     Evaluate |g'(x)| at root to rank convergence.
+
+    Strategy S1: g(x) = x - f(x)/f'(x)
+      Applied when f'(root) != 0 and the simplified expression is valid.
+      |g'(root)| = |f(root)·f''(root)| / |f'(root)|^2.
+      Near the root f(root)≈0, so |g'(root)|≈0 < 1 — guaranteed convergence.
     """
     candidates = []
     f = eq.f_sympy
     x = _x
 
-    # Strategy 1: x = x - f(x)/f'(x)  (Newton correction — always converges if f'≠0)
-    try:
-        fp = eq.fp_sympy
-        g1 = x - f / fp
-        g1s = sp.simplify(g1)
-        gp1 = sp.diff(g1s, x)
-        gp1_val = abs(float(gp1.subs(x, root).evalf()))
-        candidates.append({
-            "expr": g1s,
-            "label": "x - f(x)/f'(x)",
-            "gp_abs": gp1_val,
-            "converges": gp1_val < 1,
-        })
-    except Exception:
-        pass
-
-    # Strategy 2: isolate x from each term
-    try:
-        sols = sp.solve(f, x)
-        for sol in sols:
-            sol_simplified = sp.simplify(sol)
-            try:
-                gp = sp.diff(sol_simplified, x)
-                gp_val = abs(float(gp.subs(x, root).evalf()))
-                if math.isfinite(gp_val):
-                    candidates.append({
-                        "expr": sol_simplified,
-                        "label": f"x = {sp.latex(sol_simplified)}",
-                        "gp_abs": gp_val,
-                        "converges": gp_val < 1,
-                    })
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    # Strategy 3: x = x - c*f(x) for c = 1/f'(root)
+    # Strategy S1: g(x) = x - f(x)/f'(x)
     try:
         fp_root = eval_fp(eq, root)
         if abs(fp_root) > 1e-10:
-            c = 1 / fp_root
-            g3 = x - sp.Rational(1, 1) * c * f
-            g3s = sp.nsimplify(g3, rational=False)
-            gp3 = sp.diff(g3, x)
-            gp3_val = abs(float(gp3.subs(x, root).evalf()))
-            if math.isfinite(gp3_val):
+            fp_sym = eq.fp_sympy
+            g1 = x - f / fp_sym
+            g1s = sp.simplify(g1)
+            gp1 = sp.diff(g1s, x)
+            gp1_val = abs(float(gp1.subs(x, root).evalf()))
+            if math.isfinite(gp1_val):
                 candidates.append({
-                    "expr": g3,
-                    "label": f"x - ({c:.4f})·f(x)",
-                    "gp_abs": gp3_val,
-                    "converges": gp3_val < 1,
+                    "expr": g1s,
+                    "label": "x - f(x)/f'(x)",
+                    "gp_abs": gp1_val,
+                    "converges": gp1_val < 1,
                 })
     except Exception:
         pass
 
     # Sort: converging first, then by |g'(x)| ascending
     candidates.sort(key=lambda c: (0 if c["converges"] else 1, c["gp_abs"]))
+
     return candidates
 
 
@@ -206,10 +176,10 @@ def generate_params(eq: ParsedEquation) -> AutoParams:
         sign_changes.sort(key=pair_score)
         a, b = sign_changes[0]
 
-    # Select x0 — closest integer to first root
+    # Select x0 — closest integer to first root, skipping points where f'≈0
     root_ref = roots_approx[0] if roots_approx else 1.0
-    x0 = _best_integer_near(root_ref)
-    x0_alt = _best_integer_near(root_ref, exclude=x0)
+    x0 = _best_integer_near(root_ref, eq=eq)
+    x0_alt = _best_integer_near(root_ref, exclude=x0, eq=eq)
 
     # g(x) candidates
     gx_candidates = _generate_gx_candidates(eq, root_ref) if roots_approx else []
@@ -242,6 +212,7 @@ def generate_params(eq: ParsedEquation) -> AutoParams:
                 "gp_abs": c["gp_abs"],
                 "converges": c["converges"],
                 "latex": sp.latex(c["expr"]),
+                "expr": str(c["expr"]),
             }
             for c in gx_candidates
         ],
@@ -250,8 +221,18 @@ def generate_params(eq: ParsedEquation) -> AutoParams:
     )
 
 
-def _best_integer_near(val: float, exclude: Optional[float] = None) -> float:
-    """Return the best integer near val, preferring positive, excluding one value."""
+def _best_integer_near(
+    val: float,
+    exclude: Optional[float] = None,
+    eq: Optional[object] = None,
+) -> float:
+    """Return the best integer near val, preferring positive, excluding one value.
+
+    When eq is provided, candidates where |f'(c)| < 1e-10 are deprioritized
+    (pushed to the back of the sort) so derivative-based methods can start
+    from a valid point.  Falls back to a zero-derivative candidate only if
+    no valid alternative exists.
+    """
     candidates = [
         math.floor(val),
         math.ceil(val),
@@ -259,7 +240,27 @@ def _best_integer_near(val: float, exclude: Optional[float] = None) -> float:
         math.floor(val) - 1,
         math.ceil(val) + 1,
     ]
-    candidates = [c for c in candidates if exclude is None or c != exclude]
-    # Sort by: positive first, then by distance
-    candidates.sort(key=lambda c: (0 if c > 0 else (1 if c == 0 else 2), abs(c - val)))
+    # Deduplicate while preserving order, removing excluded value
+    seen: set = set()
+    filtered = []
+    for c in candidates:
+        if (exclude is None or c != exclude) and c not in seen:
+            seen.add(c)
+            filtered.append(c)
+    candidates = filtered
+
+    def sort_key(c: int) -> tuple:
+        sign_prio = 0 if c > 0 else (1 if c == 0 else 2)
+        dist = abs(c - val)
+        fp_penalty = 0
+        if eq is not None:
+            try:
+                fp_val = abs(eval_fp(eq, float(c)))
+                if fp_val < 1e-10:
+                    fp_penalty = 10
+            except Exception:
+                pass
+        return (fp_penalty, sign_prio, dist)
+
+    candidates.sort(key=sort_key)
     return float(candidates[0]) if candidates else val

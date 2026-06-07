@@ -59,7 +59,7 @@ def run(
     final_error: Optional[float] = None
     root: Optional[float] = None
 
-    for k in range(max_iter + 1):
+    for k in range(max_iter):
         fxk = eval_f(eq, xk)
         fpxk = eval_fp(eq, xk)
 

@@ -63,14 +63,18 @@ def run(
     final_error: Optional[float] = None
     root: Optional[float] = None
 
-    for k in range(max_iter + 1):
+    for k in range(max_iter):
         fxk = eval_f(eq, xk)
         x_next = xk - fxk / fp_x0
 
-        if abs(x_next) > 1e-15:
+        # F = =ABS((E-B)/E)*100  — sin IFERROR (verificado en amburger.xlsx).
+        # Si x_next=0 → Excel muestra #DIV/0!, no hace fallback → break.
+        try:
             error_pct = abs((x_next - xk) / x_next) * 100
-        else:
-            error_pct = abs(x_next - xk) * 100
+            if not math.isfinite(error_pct):
+                break
+        except ZeroDivisionError:
+            break
 
         conv = error_pct < tol
         final_error = error_pct

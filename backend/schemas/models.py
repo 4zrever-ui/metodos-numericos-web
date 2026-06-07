@@ -59,11 +59,17 @@ class FixedPointRow(IterationRow):
 
 @dataclass
 class AitkenRow(IterationRow):
+    p0: float = 0.0
+    p1: float = 0.0
+    p2: float = 0.0
     xk_hat: float = 0.0   # Aitken accelerated value
 
 
 @dataclass
 class SteffensenRow(IterationRow):
+    p0: float = 0.0
+    p1: float = 0.0
+    p2: float = 0.0
     xk_hat: float = 0.0
 
 
