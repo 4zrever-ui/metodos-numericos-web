@@ -2,7 +2,17 @@
 Método de Aitken (Δ²).
 Matches amburger.xlsx sheet 'Aitken'.
 Uses Punto Fijo as base iteration.
-Formula: p̂ₖ = pₖ - (pₖ₊₁ - pₖ)² / (pₖ₊₂ - 2·pₖ₊₁ + pₖ)
+Formula: p̂ₖ = pₖ₊₁ - (pₖ₊₂ - pₖ₊₁)² / (pₖ₊₃ - 2·pₖ₊₂ + pₖ₊₁)
+
+Architecture confirmed from amburger.xlsx:
+  - Base sequence: pf[0]=x0, pf[1]=g(x0), pf[2]=g(pf[1]), ...
+  - Aitken rows start using pf[1] (NOT pf[0]) as first triplet anchor.
+    Row k uses triplet (pf[k+1], pf[k+2], pf[k+3]).
+  - Error is computed starting at row k=1: abs((hat[k]-hat[k-1])/hat[k])*100
+  - Convergence check (SI/NO) starts at k=1.
+  - First SI stops the method.
+  - iteration_count = k (the converged row index).
+  - Tolerance = 0.00001.
 """
 
 from __future__ import annotations
@@ -21,7 +31,7 @@ _SHEET_NAME = "Aitken"
 _x = sp.Symbol("x")
 
 
-def _aitken_delta2(p0: float, p1: float, p2: float) -> float:
+def _aitken_delta2(p0: float, p1: float, p2: float) -> Optional[float]:
     denom = p2 - 2 * p1 + p0
     if abs(denom) < 1e-15:
         return p0
@@ -55,14 +65,16 @@ def run(
             converged=False,
             iteration_count=0,
             excel_sheet_name=_SHEET_NAME,
-            formula_description="p̂ₖ = pₖ − (pₖ₊₁−pₖ)² / (pₖ₊₂ − 2pₖ₊₁ + pₖ)",
+            formula_description="p̂ₖ = pₖ₊₁ − (pₖ₊₂−pₖ₊₁)² / (pₖ₊₃ − 2pₖ₊₂ + pₖ₊₁)",
         )
 
     def g(val: float) -> float:
         return float(gx.subs(_x, val).evalf())
 
-    # Generate base Punto Fijo sequence (need 3 values per Aitken step)
-    # We generate a long enough sequence
+    # Generate base Punto Fijo sequence.
+    # We need pf[0..N] where pf[0] = x0.
+    # Aitken row k uses triplet (pf[k+1], pf[k+2], pf[k+3]),
+    # so we need at least max_iter+3+1 values.
     base_seq = [x0]
     for _ in range(max_iter + 6):
         try:
@@ -73,7 +85,9 @@ def run(
         except Exception:
             break
 
-    if len(base_seq) < 3:
+    # Need at least 4 values: pf[0], pf[1], pf[2], pf[3]
+    # to compute even the first Aitken hat (k=0 using pf[1..3])
+    if len(base_seq) < 4:
         return MethodResult(
             method_name="Aitken (Δ²)",
             applicable=False,
@@ -89,7 +103,7 @@ def run(
             converged=False,
             iteration_count=0,
             excel_sheet_name=_SHEET_NAME,
-            formula_description="p̂ₖ = pₖ − (pₖ₊₁−pₖ)² / (pₖ₊₂ − 2pₖ₊₁ + pₖ)",
+            formula_description="p̂ₖ = pₖ₊₁ − (pₖ₊₂−pₖ₊₁)² / (pₖ₊₃ − 2pₖ₊₂ + pₖ₊₁)",
         )
 
     rows: list[AitkenRow] = []
@@ -97,18 +111,28 @@ def run(
     final_error: Optional[float] = None
     root: Optional[float] = None
     prev_hat: Optional[float] = None
+    converged_k: int = 0
 
-    for k in range(len(base_seq) - 2):
-        p0 = base_seq[k]
-        p1 = base_seq[k + 1]
-        p2 = base_seq[k + 2]
+    # Excel architecture: row k uses triplet (pf[k+1], pf[k+2], pf[k+3])
+    # Maximum k is limited by available base_seq length
+    max_k = min(len(base_seq) - 3, max_iter)
+
+    for k in range(max_k):
+        p0 = base_seq[k + 1]
+        p1 = base_seq[k + 2]
+        p2 = base_seq[k + 3]
 
         hat = _aitken_delta2(p0, p1, p2)
+
+        if hat is None:
+            # denom = 0 → Excel shows #DIV/0!, table ends here.
+            break
 
         error_pct: Optional[float] = None
         conv: Optional[bool] = None
 
-        if k > 0 and prev_hat is not None:
+        # Error and convergence start at k=1 (matching Excel column C starting at row 3)
+        if k >= 1 and prev_hat is not None:
             if abs(hat) > 1e-15:
                 error_pct = abs((hat - prev_hat) / hat) * 100
             else:
@@ -118,19 +142,22 @@ def run(
             if conv:
                 converged = True
                 root = hat
+                converged_k = k
 
-        rows.append(AitkenRow(k=k, xk_hat=hat, x_new=hat, error_pct=error_pct, converged=conv))
+        rows.append(AitkenRow(
+            k=k, p0=p0, p1=p1, p2=p2,
+            xk_hat=hat, x_new=hat,
+            error_pct=error_pct, converged=conv,
+        ))
 
         if converged:
             break
 
         prev_hat = hat
 
-        if k >= max_iter:
-            break
-
     if root is None and rows:
         root = rows[-1].xk_hat
+        converged_k = rows[-1].k
 
     return MethodResult(
         method_name="Aitken (Δ²)",
@@ -150,7 +177,8 @@ def run(
         root=root,
         final_error_pct=final_error,
         converged=converged,
-        iteration_count=len(rows) - 1,
+        # iteration_count = the k index of the converged (or last) row
+        iteration_count=converged_k,
         excel_sheet_name=_SHEET_NAME,
-        formula_description="p̂ₖ = pₖ − (pₖ₊₁−pₖ)² / (pₖ₊₂ − 2pₖ₊₁ + pₖ)",
+        formula_description="p̂ₖ = pₖ₊₁ − (pₖ₊₂−pₖ₊₁)² / (pₖ₊₃ − 2pₖ₊₂ + pₖ₊₁)",
     )

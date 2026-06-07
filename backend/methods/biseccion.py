@@ -88,8 +88,64 @@ def run(
 
     for k in range(max_iter + 1):
         fa = eval_f(eq, cur_a)
+
+        if not math.isfinite(fa):
+            return MethodResult(
+                method_name="Bisección",
+                applicable=False,
+                reason=(
+                    f"f(x) no es finita durante la iteración k={k}: "
+                    f"f({cur_a})={fa}. Posible singularidad dentro del intervalo."
+                ),
+                equation_str=eq.raw,
+                f_latex=eq.f_latex,
+                fp_latex=eq.fp_latex,
+                fpp_latex=eq.fpp_latex,
+                params_used=params_used,
+                iterations=rows,
+                root=None,
+                final_error_pct=None,
+                converged=False,
+                iteration_count=len(rows),
+                excel_sheet_name=_SHEET_NAME,
+                formula_description="cₙ = (aₙ + bₙ) / 2",
+            )
+
         c = (cur_a + cur_b) / 2
         fc = eval_f(eq, c)
+
+        if not math.isfinite(fc):
+            return MethodResult(
+                method_name="Bisección",
+                applicable=False,
+                reason=(
+                    f"f(c) no es finita en iteración k={k}: "
+                    f"f({c})={fc}. Posible singularidad en el interior del intervalo."
+                ),
+                equation_str=eq.raw,
+                f_latex=eq.f_latex,
+                fp_latex=eq.fp_latex,
+                fpp_latex=eq.fpp_latex,
+                params_used=params_used,
+                iterations=rows,
+                root=None,
+                final_error_pct=None,
+                converged=False,
+                iteration_count=len(rows),
+                excel_sheet_name=_SHEET_NAME,
+                formula_description="cₙ = (aₙ + bₙ) / 2",
+            )
+
+        if fc == 0.0:
+            fb = eval_f(eq, cur_b)
+            rows.append(IntervalRow(
+                k=k, a=cur_a, c=c, b=cur_b,
+                fa=fa, fc=fc, fb=fb, fa_fc=fa * fc,
+                x_new=c, error_pct=None, converged=True,
+            ))
+            root, converged, final_error = c, True, 0.0
+            break
+
         fb = eval_f(eq, cur_b)
         fa_fc = fa * fc
 
