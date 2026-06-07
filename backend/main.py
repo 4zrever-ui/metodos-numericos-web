@@ -18,6 +18,9 @@ from backend.methods.newton_family import (
 )
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from backend.excel.excel_generator import generate_single, generate_all
+import io
 
 app = FastAPI(title="Métodos Numéricos API")
 
@@ -240,3 +243,95 @@ def method_ostrowsky(data: dict):
     result = run_ostrowsky(eq, params, x0=_x0(data), tol=_tol(data))
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Bloque 2 — Endpoints nuevos: comparativa + exportación Excel
+# ---------------------------------------------------------------------------
+
+ALL_METHOD_RUNNERS = [
+    ("newton",               lambda eq, p, d: run_newton(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("biseccion",            lambda eq, p, d: run_biseccion(eq, p, a=_a(d), b=_b(d), tol=_tol(d))),
+    ("regula_falsi",         lambda eq, p, d: run_regula_falsi(eq, p, a=_a(d), b=_b(d), tol=_tol(d))),
+    ("secante",              lambda eq, p, d: run_secante(eq, p, x0=_x0(d), x1=_x1(d), tol=_tol(d))),
+    ("punto_fijo",           lambda eq, p, d: run_punto_fijo(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("steffensen",           lambda eq, p, d: run_steffensen(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("aitken",               lambda eq, p, d: run_aitken(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("von_mises",            lambda eq, p, d: run_von_mises(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("newton_modificado",    lambda eq, p, d: run_newton_modificado(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("newton_segundo_orden", lambda eq, p, d: run_newton_segundo_orden(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("chebyshev",            lambda eq, p, d: run_chebyshev(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("halley",               lambda eq, p, d: run_halley(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("super_halley",         lambda eq, p, d: run_super_halley(eq, p, x0=_x0(d), tol=_tol(d))),
+    ("ostrowsky",            lambda eq, p, d: run_ostrowsky(eq, p, x0=_x0(d), tol=_tol(d))),
+]
+
+
+@app.post("/method/all")
+def method_all(data: dict):
+    """Ejecuta los 14 métodos y devuelve tabla comparativa JSON."""
+    equation = data.get("equation")
+    eq = parse_equation(equation)
+    params = generate_params(eq)
+
+    results = []
+    for method_key, runner in ALL_METHOD_RUNNERS:
+        try:
+            result = runner(eq, params, data)
+            results.append({
+                "method":          method_key,
+                "applicable":      getattr(result, "applicable", True),
+                "converged":       getattr(result, "converged", False),
+                "root":            getattr(result, "root", None),
+                "iteration_count": getattr(result, "iteration_count", None),
+                "final_error_pct": getattr(result, "final_error_pct", None),
+                "reason":          getattr(result, "reason", ""),
+            })
+        except Exception as e:
+            results.append({
+                "method":          method_key,
+                "applicable":      False,
+                "converged":       False,
+                "root":            None,
+                "iteration_count": None,
+                "final_error_pct": None,
+                "reason":          str(e),
+            })
+
+    return {"equation": equation, "results": results}
+
+
+@app.post("/excel/single")
+def excel_single(data: dict):
+    """Genera y descarga un Excel de un método individual."""
+    equation   = data.get("equation", "")
+    method_key = data.get("method_key", "newton_raphson")
+
+    KEY_MAP = {
+        "newton":               "newton_raphson",
+        "newton_segundo_orden": "newton_2do_orden",
+    }
+    method_key = KEY_MAP.get(method_key, method_key)
+
+    xlsx_bytes = generate_single(method_key, equation, eq_label=equation)
+    filename   = f"metodos_numericos_{method_key}.xlsx"
+
+    return StreamingResponse(
+        io.BytesIO(xlsx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@app.post("/excel/all")
+def excel_all(data: dict):
+    """Genera y descarga un Excel con los 14 métodos en hojas separadas."""
+    equation = data.get("equation", "")
+
+    xlsx_bytes = generate_all(equation, eq_label=equation)
+
+    return StreamingResponse(
+        io.BytesIO(xlsx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=metodos_numericos_todos.xlsx"},
+    )
