@@ -104,9 +104,6 @@ def run(
     try:
         gxk = g(xk)
     except Exception as e:
-        print("GX =", gx)
-        print("X0 =", x0)
-        print("ERROR GX =", e)
         return MethodResult(
             method_name="Punto Fijo",
             applicable=False,
@@ -134,9 +131,6 @@ def run(
         try:
             gxk = g(xk)
         except Exception as e:
-            print("GX =", gx)
-            print("X0 =", x0)
-            print("ERROR GX =", e)
             return MethodResult(
                 method_name="Punto Fijo",
                 applicable=False,
