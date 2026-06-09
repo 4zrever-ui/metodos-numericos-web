@@ -39,6 +39,11 @@ def _a(data):   return data.get("a")     # None → auto
 def _b(data):   return data.get("b")     # None → auto
 def _tol(data): return data.get("tol", 0.00001)
 
+def _eq(data, key="equation", default=""):
+    """Extrae la ecuación y normaliza ^ → ** para que x^3 funcione igual que x**3."""
+    raw = data.get(key, default) or default
+    return raw.replace("^", "**")
+
 
 @app.get("/")
 def root():
@@ -49,7 +54,7 @@ def root():
 @app.post("/analyze")
 def analyze(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     parsed = parse_equation(equation)
 
@@ -65,7 +70,7 @@ def analyze(data: dict):
 @app.post("/method/newton")
 def method_newton(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -78,7 +83,7 @@ def method_newton(data: dict):
 @app.post("/method/biseccion")
 def method_biseccion(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -91,7 +96,7 @@ def method_biseccion(data: dict):
 @app.post("/method/regula_falsi")
 def method_regula_falsi(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -104,7 +109,7 @@ def method_regula_falsi(data: dict):
 @app.post("/method/secante")
 def method_secante(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -117,7 +122,7 @@ def method_secante(data: dict):
 @app.post("/method/punto_fijo")
 def method_punto_fijo(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -130,7 +135,7 @@ def method_punto_fijo(data: dict):
 @app.post("/method/steffensen")
 def method_steffensen(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -143,7 +148,7 @@ def method_steffensen(data: dict):
 @app.post("/method/aitken")
 def method_aitken(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -156,7 +161,7 @@ def method_aitken(data: dict):
 @app.post("/method/von_mises")
 def method_von_mises(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -169,7 +174,7 @@ def method_von_mises(data: dict):
 @app.post("/method/newton_modificado")
 def method_newton_modificado(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -182,7 +187,7 @@ def method_newton_modificado(data: dict):
 @app.post("/method/newton_segundo_orden")
 def method_newton_segundo_orden(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -195,7 +200,7 @@ def method_newton_segundo_orden(data: dict):
 @app.post("/method/chebyshev")
 def method_chebyshev(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -208,7 +213,7 @@ def method_chebyshev(data: dict):
 @app.post("/method/halley")
 def method_halley(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -221,7 +226,7 @@ def method_halley(data: dict):
 @app.post("/method/super_halley")
 def method_super_halley(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -234,7 +239,7 @@ def method_super_halley(data: dict):
 @app.post("/method/ostrowsky")
 def method_ostrowsky(data: dict):
 
-    equation = data.get("equation")
+    equation = _eq(data)
 
     eq = parse_equation(equation)
 
@@ -270,7 +275,7 @@ ALL_METHOD_RUNNERS = [
 @app.post("/method/all")
 def method_all(data: dict):
     """Ejecuta los 14 métodos y devuelve tabla comparativa JSON."""
-    equation = data.get("equation")
+    equation = _eq(data)
     eq = parse_equation(equation)
     params = generate_params(eq)
 
@@ -304,7 +309,7 @@ def method_all(data: dict):
 @app.post("/excel/single")
 def excel_single(data: dict):
     """Genera y descarga un Excel de un método individual."""
-    equation   = data.get("equation", "")
+    equation   = _eq(data)
     method_key = data.get("method_key", "newton_raphson")
 
     KEY_MAP = {
@@ -326,7 +331,7 @@ def excel_single(data: dict):
 @app.post("/excel/all")
 def excel_all(data: dict):
     """Genera y descarga un Excel con los 14 métodos en hojas separadas."""
-    equation = data.get("equation", "")
+    equation = _eq(data)
 
     xlsx_bytes = generate_all(equation, eq_label=equation)
 

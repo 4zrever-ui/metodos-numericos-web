@@ -36,11 +36,10 @@ const PARAM_PLACEHOLDERS = {
   tol: "0.00001",
 };
 
-// Columnas internas que no se muestran en la tabla
+// Columnas internas que no se muestran en la tabla de iteraciones
 const HIDDEN_COLS = new Set(["extra", "converged"]);
 
 function numOrNull(str) {
-  // Convierte string a Number o null — nunca manda string al backend
   if (str === "" || str === null || str === undefined) return null;
   const n = Number(str);
   return isNaN(n) ? null : n;
@@ -57,6 +56,24 @@ function formatValue(val) {
   return String(val);
 }
 
+// ── Descarga de Excel ─────────────────────────────────────────────────────────
+async function descargarBlob(url, body, filename) {
+  const res = await fetch(`${API}${url}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Error al generar Excel: ${res.status}`);
+  const blob = await res.blob();
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(href);
+}
+
+// ── Componentes de tabla de iteraciones (flujo individual) ────────────────────
 function IterationTable({ iterations }) {
   if (!iterations || iterations.length === 0) return null;
   const cols = Object.keys(iterations[0]).filter((k) => !HIDDEN_COLS.has(k));
@@ -111,18 +128,112 @@ function Summary({ result, methodLabel }) {
   );
 }
 
+// ── Tabla comparativa (flujo "Resolver todos") ────────────────────────────────
+function ComparisonTable({ results, equation }) {
+  const [downloading, setDownloading] = useState(null); // key del método descargando
+
+  const handleExcelSingle = async (methodKey) => {
+    setDownloading(methodKey);
+    try {
+      await descargarBlob(
+        "/excel/single",
+        { equation, method_key: methodKey },
+        `metodos_numericos_${methodKey}.xlsx`
+      );
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  return (
+    <div className="table-wrapper comparison-table-wrapper">
+      <table className="comparison-table">
+        <thead>
+          <tr>
+            <th className="col-method">Método</th>
+            <th className="col-root">Raíz</th>
+            <th className="col-iter">Iter.</th>
+            <th className="col-error">Error final</th>
+            <th className="col-conv">Convergió</th>
+            <th className="col-excel">Excel</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((r) => {
+            const label = METHODS[r.method]?.label ?? r.method;
+            const applicable = r.applicable !== false;
+            return (
+              <tr
+                key={r.method}
+                className={
+                  !applicable
+                    ? "row-na"
+                    : r.converged
+                    ? "row-converged"
+                    : "row-noconv"
+                }
+              >
+                <td className="col-method">{label}</td>
+                <td className="col-root mono">
+                  {r.root != null ? r.root.toPrecision(8) : "—"}
+                </td>
+                <td className="col-iter">
+                  {r.iteration_count ?? "—"}
+                </td>
+                <td className="col-error mono">
+                  {r.final_error_pct != null
+                    ? r.final_error_pct.toExponential(3) + "%"
+                    : "—"}
+                </td>
+                <td className="col-conv">
+                  {!applicable ? (
+                    <span className="badge badge-na" title={r.reason}>N/A</span>
+                  ) : r.converged ? (
+                    <span className="badge badge-ok">Sí</span>
+                  ) : (
+                    <span className="badge badge-fail" title={r.reason}>No</span>
+                  )}
+                </td>
+                <td className="col-excel">
+                  <button
+                    className="btn-excel-single"
+                    onClick={() => handleExcelSingle(r.method)}
+                    disabled={downloading === r.method}
+                    title={`Descargar Excel — ${label}`}
+                  >
+                    {downloading === r.method ? "…" : "↓ xlsx"}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── App principal ─────────────────────────────────────────────────────────────
 export default function App() {
-  const [equation, setEquation]   = useState("x^3 - 2*x - 5");
-  const [method, setMethod]       = useState("newton");
+  // Estado del flujo individual (sin cambios)
+  const [equation, setEquation]         = useState("x^3 - 2*x - 5");
+  const [method, setMethod]             = useState("newton");
   const [manualParams, setManualParams] = useState({});
   const [showParams, setShowParams]     = useState(false);
-  const [result, setResult]       = useState(null);
-  const [error, setError]         = useState(null);
-  const [loading, setLoading]     = useState(false);
+  const [result, setResult]             = useState(null);
+  const [error, setError]               = useState(null);
+  const [loading, setLoading]           = useState(false);
+
+  // Estado del flujo comparativo — independiente, no toca nada de arriba
+  const [allResults, setAllResults]     = useState(null);
+  const [loadingAll, setLoadingAll]     = useState(false);
+  const [errorAll, setErrorAll]         = useState(null);
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
   const currentParamKeys = METHODS[method].params;
 
-  // Cuando cambia el método, limpia parámetros manuales
   const handleMethodChange = (e) => {
     setMethod(e.target.value);
     setManualParams({});
@@ -134,64 +245,103 @@ export default function App() {
     setManualParams((prev) => ({ ...prev, [key]: val }));
   };
 
+  // ── Resolver individual ───────────────────────────────────────────────────
   const resolver = async () => {
     if (!equation.trim()) {
       setError("Ingresa una ecuación antes de resolver.");
       setResult(null);
       return;
     }
-
     setError(null);
     setResult(null);
     setLoading(true);
-
     try {
       const { url } = METHODS[method];
-
-      // Construir body: equation + parámetros opcionales como Number o null
       const body = { equation: equation.trim() };
       for (const key of currentParamKeys) {
         const val = numOrNull(manualParams[key]);
-        if (val !== null) body[key] = val;  // solo incluir si el usuario lo llenó
+        if (val !== null) body[key] = val;
       }
-
       const res = await fetch(`${API}${url}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(
           detail?.detail ? JSON.stringify(detail.detail) : `Error del servidor: ${res.status}`
         );
       }
-
       const data = await res.json();
-
-      if (!data || typeof data !== "object") {
-        throw new Error("Respuesta inválida del backend.");
-      }
-
+      if (!data || typeof data !== "object") throw new Error("Respuesta inválida del backend.");
       if (data.applicable === false) {
         setError(`Método no aplicable: ${data.reason}`);
         return;
       }
-
       if (!data.converged) {
         setError(`El método no convergió en ${data.iteration_count} iteraciones.`);
       }
-
       setResult(data);
     } catch (e) {
-      if (e instanceof TypeError && e.message.includes("fetch")) {
-        setError("No se pudo conectar con el backend. ¿Está corriendo uvicorn?");
-      } else {
-        setError(e.message);
-      }
+      setError(
+        e instanceof TypeError && e.message.includes("fetch")
+          ? "No se pudo conectar con el backend. ¿Está corriendo uvicorn?"
+          : e.message
+      );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Resolver todos ────────────────────────────────────────────────────────
+  const resolverTodos = async () => {
+    if (!equation.trim()) {
+      setErrorAll("Ingresa una ecuación antes de resolver.");
+      return;
+    }
+    setErrorAll(null);
+    setAllResults(null);
+    setLoadingAll(true);
+    try {
+      const res = await fetch(`${API}/method/all`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ equation: equation.trim() }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(
+          detail?.detail ? JSON.stringify(detail.detail) : `Error del servidor: ${res.status}`
+        );
+      }
+      const data = await res.json();
+      setAllResults(data.results);
+    } catch (e) {
+      setErrorAll(
+        e instanceof TypeError && e.message.includes("fetch")
+          ? "No se pudo conectar con el backend. ¿Está corriendo uvicorn?"
+          : e.message
+      );
+    } finally {
+      setLoadingAll(false);
+    }
+  };
+
+  // ── Descargar Excel completo ──────────────────────────────────────────────
+  const descargarExcelAll = async () => {
+    if (!equation.trim()) return;
+    setDownloadingAll(true);
+    try {
+      await descargarBlob(
+        "/excel/all",
+        { equation: equation.trim() },
+        "metodos_numericos_todos.xlsx"
+      );
+    } catch (e) {
+      setErrorAll(e.message);
+    } finally {
+      setDownloadingAll(false);
     }
   };
 
@@ -202,7 +352,7 @@ export default function App() {
         <p className="subtitle">Resolución de ecuaciones no lineales</p>
       </header>
 
-      {/* Bloque 1: Formulario principal */}
+      {/* ── Bloque 1: Formulario principal ── */}
       <section className="form-section">
         <div className="form-group form-group--equation">
           <label htmlFor="equation">Ecuación f(x) = 0</label>
@@ -246,12 +396,21 @@ export default function App() {
           </select>
         </div>
 
-        <button className="btn-resolver" onClick={resolver} disabled={loading}>
-          {loading ? "Calculando..." : "Resolver"}
-        </button>
+        <div className="btn-group">
+          <button className="btn-resolver" onClick={resolver} disabled={loading}>
+            {loading ? "Calculando…" : "Resolver"}
+          </button>
+          <button
+            className="btn-todos"
+            onClick={resolverTodos}
+            disabled={loadingAll}
+          >
+            {loadingAll ? "Calculando…" : "Resolver todos"}
+          </button>
+        </div>
       </section>
 
-      {/* Bloque 2: Parámetros manuales opcionales */}
+      {/* ── Bloque 2: Parámetros manuales ── */}
       <section className="params-section">
         <button
           className="params-toggle"
@@ -260,7 +419,6 @@ export default function App() {
           {showParams ? "▲" : "▼"} Parámetros manuales{" "}
           <span className="params-toggle-hint">(opcional — dejar vacío usa valores automáticos)</span>
         </button>
-
         {showParams && (
           <div className="params-grid">
             {currentParamKeys.map((key) => (
@@ -280,21 +438,45 @@ export default function App() {
         )}
       </section>
 
-      {/* Bloque 5: Errores */}
+      {/* ── Bloque 3: Error flujo individual ── */}
       {error && (
         <div className="error-box">
           <span className="error-icon">⚠</span> {error}
         </div>
       )}
 
-      {/* Bloque 3: Resumen */}
+      {/* ── Bloque 4: Resumen flujo individual ── */}
       {result && <Summary result={result} methodLabel={METHODS[method].label} />}
 
-      {/* Bloque 4: Tabla */}
+      {/* ── Bloque 5: Tabla de iteraciones flujo individual ── */}
       {result?.iterations?.length > 0 && (
         <section className="iterations-section">
           <h2>Tabla de iteraciones</h2>
           <IterationTable iterations={result.iterations} />
+        </section>
+      )}
+
+      {/* ── Bloque 6: Error flujo comparativo ── */}
+      {errorAll && (
+        <div className="error-box error-box--all">
+          <span className="error-icon">⚠</span> {errorAll}
+        </div>
+      )}
+
+      {/* ── Bloque 7: Tabla comparativa + descarga Excel ── */}
+      {allResults && (
+        <section className="comparison-section">
+          <div className="comparison-header">
+            <h2>Comparativa — 14 métodos</h2>
+            <button
+              className="btn-excel-all"
+              onClick={descargarExcelAll}
+              disabled={downloadingAll}
+            >
+              {downloadingAll ? "Generando…" : "↓ Descargar Excel completo"}
+            </button>
+          </div>
+          <ComparisonTable results={allResults} equation={equation.trim()} />
         </section>
       )}
     </div>

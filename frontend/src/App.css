@@ -269,3 +269,148 @@ tr.row-converged td { color: #15803d; font-weight: 600; }
 @media (prefers-color-scheme: dark) {
   tr.row-converged td { color: #4ade80; }
 }
+
+/* ── Grupo de botones (Resolver + Resolver todos) ────────────────────────── */
+.btn-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+/* ── Botón Resolver todos ────────────────────────────────────────────────── */
+.btn-todos {
+  padding: 0.55rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: transparent;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn-todos:hover:not(:disabled) {
+  background: var(--accent-bg);
+}
+
+.btn-todos:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Sección comparativa ─────────────────────────────────────────────────── */
+.comparison-section {
+  margin-top: 2.5rem;
+}
+
+.comparison-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.comparison-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+/* ── Botón Excel completo ────────────────────────────────────────────────── */
+.btn-excel-all {
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn-excel-all:hover:not(:disabled) { opacity: 0.85; }
+.btn-excel-all:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (prefers-color-scheme: dark) {
+  .btn-excel-all { background: #15803d; }
+}
+
+/* ── Tabla comparativa ───────────────────────────────────────────────────── */
+.comparison-table-wrapper {
+  /* hereda .table-wrapper */
+}
+
+.comparison-table {
+  /* hereda table */
+}
+
+/* Anchos de columna */
+.comparison-table .col-method { text-align: left; min-width: 160px; }
+.comparison-table .col-root   { min-width: 130px; }
+.comparison-table .col-iter   { min-width: 60px;  }
+.comparison-table .col-error  { min-width: 110px; }
+.comparison-table .col-conv   { min-width: 80px; text-align: center; }
+.comparison-table .col-excel  { min-width: 80px; text-align: center; }
+
+/* Primera columna alineada a la izquierda en tbody también */
+.comparison-table td.col-method { text-align: left; font-weight: 500; color: var(--text-h); }
+
+/* Celda con font mono para números */
+.comparison-table td.mono { font-family: var(--mono); font-size: 0.8rem; }
+
+/* Filas N/A — método no aplicable */
+.row-na td { opacity: 0.45; }
+
+/* Fila que no convergió */
+.row-noconv td { color: var(--text); }
+
+/* Badge N/A */
+.badge-na {
+  background: rgba(100, 100, 100, 0.12);
+  color: #6b7280;
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .badge-na { background: rgba(156, 163, 175, 0.15); color: #9ca3af; }
+}
+
+/* ── Botón Excel individual ──────────────────────────────────────────────── */
+.btn-excel-single {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  background: transparent;
+  color: #16a34a;
+  border: 1px solid #16a34a;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, opacity 0.12s;
+  white-space: nowrap;
+}
+
+.btn-excel-single:hover:not(:disabled) {
+  background: rgba(22, 163, 74, 0.1);
+}
+
+.btn-excel-single:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (prefers-color-scheme: dark) {
+  .btn-excel-single { color: #4ade80; border-color: #4ade80; }
+  .btn-excel-single:hover:not(:disabled) { background: rgba(74, 222, 128, 0.1); }
+}

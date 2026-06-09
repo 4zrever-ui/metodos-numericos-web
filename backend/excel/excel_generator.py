@@ -90,27 +90,28 @@ def _compute_derivatives(fx_str: str) -> tuple[str, str]:
 
 def _default_params(method_key: str, fx_str: str) -> dict[str, Any]:
     """
-    Generate sensible default parameters if not supplied by the caller.
-    Tries to import auto_params; falls back to hardcoded defaults.
+    Generate sensible default parameters using auto_params.
     """
-    try:
-        from auto_params import get_params  # existing backend module
-        return get_params(method_key, fx_str)
-    except ImportError:
-        pass
+    from backend.core.equation_parser import parse_equation
+    from backend.core.auto_params import generate_params
 
-    # Fallback defaults (match amburger.xlsx test equation x²-2)
-    interval_methods = {"biseccion", "regula_falsi"}
+    eq = parse_equation(fx_str)
+    p  = generate_params(eq)
+
+    interval_methods  = {"biseccion", "regula_falsi"}
     two_point_methods = {"secante"}
-    g_methods = {"punto_fijo", "aitken", "steffensen"}
+    g_methods         = {"punto_fijo", "aitken", "steffensen"}
+
+    gx_str     = str(p.gx_sympy) if p.gx_sympy is not None else "x"
+    gx_display = f"g(x) = {gx_str}"
 
     if method_key in interval_methods:
-        return {"a0": 1, "b0": 2}
+        return {"a0": p.a, "b0": p.b}
     if method_key in two_point_methods:
-        return {"x0": 1, "x1": 2}
+        return {"x0": p.x0, "x1": p.x0_alt}
     if method_key in g_methods:
-        return {"x0": 1, "g_str": "(x+2)/(x+1)", "g_display": "g(x) = (x+2)/(x+1)"}
-    return {"x0": 1}
+        return {"x0": p.x0, "g_str": gx_str, "g_display": gx_display}
+    return {"x0": p.x0}
 
 
 # ---------------------------------------------------------------------------
