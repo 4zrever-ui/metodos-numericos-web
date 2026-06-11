@@ -208,6 +208,8 @@ class BiseccionTemplate:
             r = i + 2  # Excel row
             k = i
             ws.cell(r, 1, k if k == 0 else f"={r-2}")
+            conv_prev, pivot_prev = f"J{r-1}", f"C{r-1}"  # C1: conv=J, pivote=c=C
+
             if k == 0:
                 ws.cell(r, 1, 0)
                 ws.cell(r, 2, a0)
@@ -219,22 +221,22 @@ class BiseccionTemplate:
                 prev_C = f"C{r-1}"
                 prev_D = f"D{r-1}"
                 ws.cell(r, 1, k)
-                ws.cell(r, 2, f"=IF({prev_E}*{prev_F}<0,{prev_B},{prev_C})")
-                ws.cell(r, 4, f"=IF({prev_E}*{prev_F}<0,{prev_C},{prev_D})")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"IF({prev_E}*{prev_F}<0,{prev_B},{prev_C})", k))
+                ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, f"IF({prev_E}*{prev_F}<0,{prev_C},{prev_D})", k))
 
             bref, dref = f"B{r}", f"D{r}"
-            ws.cell(r, 3, f"=({bref}+{dref})/2")
-            ws.cell(r, 5, f"={fx(bref)}")
-            ws.cell(r, 6, f"={fx(f'C{r}')}")
-            ws.cell(r, 7, f"={fx(dref)}")
-            ws.cell(r, 8, f"=E{r}*F{r}")
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, f"({bref}+{dref})/2", k))
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, fx(f'C{r}'), k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, fx(dref), k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f"E{r}*F{r}", k))
 
             if k == 0:
                 ws.cell(r, 9, "")
                 ws.cell(r, 10, "")
             else:
-                ws.cell(r, 9, f"=ABS((C{r}-C{r-1})/C{r})*100")
-                ws.cell(r, 10, f'=IF(I{r}<0.00001,"SI","NO")')
+                ws.cell(r, 9, "=" + _freeze(conv_prev, pivot_prev, f"ABS((C{r}-C{r-1})/C{r})*100", k))
+                ws.cell(r, 10, "=" + _freeze(conv_prev, pivot_prev, f'IF(I{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
@@ -272,6 +274,8 @@ class RegulaFalsiTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
+            conv_prev, pivot_prev = f"J{r-1}", f"C{r-1}"  # C1: conv=J, pivote=c=C
+
             if k == 0:
                 ws.cell(r, 1, 0)
                 ws.cell(r, 2, a0)
@@ -280,23 +284,23 @@ class RegulaFalsiTemplate:
                 prev_E, prev_F = f"E{r-1}", f"F{r-1}"
                 prev_B, prev_C, prev_D = f"B{r-1}", f"C{r-1}", f"D{r-1}"
                 ws.cell(r, 1, k)
-                ws.cell(r, 2, f"=IF({prev_E}*{prev_F}<0,{prev_B},{prev_C})")
-                ws.cell(r, 4, f"=IF({prev_E}*{prev_F}<0,{prev_C},{prev_D})")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"IF({prev_E}*{prev_F}<0,{prev_B},{prev_C})", k))
+                ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, f"IF({prev_E}*{prev_F}<0,{prev_C},{prev_D})", k))
 
             bref, dref = f"B{r}", f"D{r}"
-            ws.cell(r, 5, f"={fx(bref)}")
-            ws.cell(r, 7, f"={fx(dref)}")
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, fx(dref), k))
             # Regula Falsi formula: c = a - f(a)*(b-a)/(f(b)-f(a))
-            ws.cell(r, 3, f"={bref}-(E{r}*({dref}-{bref}))/(G{r}-E{r})")
-            ws.cell(r, 6, f"={fx(f'C{r}')}")
-            ws.cell(r, 8, f"=E{r}*F{r}")
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-(E{r}*({dref}-{bref}))/(G{r}-E{r})", k))
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, fx(f'C{r}'), k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f"E{r}*F{r}", k))
 
             if k == 0:
                 ws.cell(r, 9, "")
                 ws.cell(r, 10, "")
             else:
-                ws.cell(r, 9, f"=ABS((C{r}-C{r-1})/C{r})*100")
-                ws.cell(r, 10, f'=IF(I{r}<0.00001,"SI","NO")')
+                ws.cell(r, 9, "=" + _freeze(conv_prev, pivot_prev, f"ABS((C{r}-C{r-1})/C{r})*100", k))
+                ws.cell(r, 10, "=" + _freeze(conv_prev, pivot_prev, f'IF(I{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
@@ -796,20 +800,23 @@ class Newton2doOrdenTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            conv_prev, pivot_prev = f"H{r-1}", f"B{r-1}"  # C1: conv=H, pivote=xₖ=B
+
             if k == 0:
                 ws.cell(r, 2, x0)
             else:
-                ws.cell(r, 2, f"=F{r-1}")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"F{r-1}", k))
 
             bref = f"B{r}"
-            ws.cell(r, 3, f"={fx(bref)}")
-            ws.cell(r, 4, f"={fpx(bref)}")
-            ws.cell(r, 5, fpp_val)
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, fpx(bref), k))
+            # C1: f''(xₖ) constante — literal→fórmula para vaciar la fila congelada
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, str(fpp_val), k))
             # xₙ₊₁ = xₙ + (-f' + sqrt(f'² - 2f''·f)) / f''
-            ws.cell(r, 6, f"={bref}+((-D{r}+((D{r})^2-2*E{r}*C{r})^(1/2))/E{r})")
-            ws.cell(r, 7, f"=ABS((F{r}-{bref})/F{r})*100")
-            ws.cell(r, 8, f'=IF(G{r}<0.00001,"SI","NO")')
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"{bref}+((-D{r}+((D{r})^2-2*E{r}*C{r})^(1/2))/E{r})", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f"ABS((F{r}-{bref})/F{r})*100", k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f'IF(G{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
@@ -1020,20 +1027,23 @@ class OstrowskyTemplate:
         for i in range(n_iter):
             r = i + 2  # data starts at row 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            conv_prev, pivot_prev = f"H{r-1}", f"B{r-1}"  # C1: conv=H, pivote=xₖ=B
+
             if k == 0:
                 ws.cell(r, 2, x0)
             else:
-                ws.cell(r, 2, f"=F{r-1}")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"F{r-1}", k))
 
             bref = f"B{r}"
-            ws.cell(r, 3, f"={fx(bref)}")
-            ws.cell(r, 4, f"={fpx(bref)}")
-            ws.cell(r, 5, fpp_val)  # literal value per original
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, fpx(bref), k))
+            # C1: f''(xₖ) constante — literal→fórmula para vaciar la fila congelada
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, str(fpp_val), k))
             # xₙ₊₁ = xₙ - (f'/sqrt(f'²-f·f'')) · (f/f')
-            ws.cell(r, 6, f"={bref}-(D{r}/((D{r}^2-C{r}*E{r})^(1/2)))*(C{r}/D{r})")
-            ws.cell(r, 7, f"=ABS((F{r}-{bref})/F{r})*100")
-            ws.cell(r, 8, f'=IF(G{r}<0.00001,"SI","NO")')
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-(D{r}/((D{r}^2-C{r}*E{r})^(1/2)))*(C{r}/D{r})", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f"ABS((F{r}-{bref})/F{r})*100", k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f'IF(G{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
@@ -1134,18 +1144,21 @@ class VonMisesTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            conv_prev, pivot_prev = f"G{r-1}", f"B{r-1}"  # C1: conv=G, pivote=xₖ=B
+
             if k == 0:
                 ws.cell(r, 2, x0)
             else:
-                ws.cell(r, 2, f"=E{r-1}")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"E{r-1}", k))
 
             bref = f"B{r}"
-            ws.cell(r, 3, f"={fx(bref)}")
-            ws.cell(r, 4, fp_val)   # constant derivative
-            ws.cell(r, 5, f"={bref}-(C{r}/D{r})")
-            ws.cell(r, 6, f"=ABS((E{r}-{bref})/E{r})*100")
-            ws.cell(r, 7, f'=IF(F{r}<0.00001,"SI","NO")')
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            # C1: f'(x₀) constante — literal→fórmula para vaciar la fila congelada
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, str(fp_val), k))
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-(C{r}/D{r})", k))
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"ABS((E{r}-{bref})/E{r})*100", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f'IF(F{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
