@@ -34,7 +34,7 @@ from typing import Any
 from openpyxl import Workbook
 
 from backend.core.sympy_to_excel import expr_to_sympy, to_excel_formula, derivative_to_excel
-from backend.excel.excel_templates import TEMPLATE_REGISTRY
+from backend.excel.excel_templates import TEMPLATE_REGISTRY, build_status_panel
 
 # Runners de los métodos numéricos — usados SOLO para calcular cuántas filas de
 # iteración generar (para que cada tabla termine en la fila del primer "SI").
@@ -45,6 +45,7 @@ from backend.methods.regula_falsi import run as _run_regula_falsi
 from backend.methods.secante import run as _run_secante
 from backend.methods.punto_fijo import run as _run_punto_fijo
 from backend.methods.aitken import run as _run_aitken
+from backend.methods.steffensen import run as _run_steffensen
 from backend.methods.von_mises import run as _run_von_mises
 from backend.methods.newton_family import (
     run_newton_modificado as _run_newton_modificado,
@@ -63,6 +64,7 @@ _METHOD_RUNNERS = {
     "secante":           lambda eq, p: _run_secante(eq, p),
     "punto_fijo":        lambda eq, p: _run_punto_fijo(eq, p),
     "aitken":            lambda eq, p: _run_aitken(eq, p),
+    "steffensen":        lambda eq, p: _run_steffensen(eq, p),
     "von_mises":         lambda eq, p: _run_von_mises(eq, p),
     "newton_modificado": lambda eq, p: _run_newton_modificado(eq, p),
     "newton_2do_orden":  lambda eq, p: _run_newton_2do(eq, p),
@@ -73,26 +75,15 @@ _METHOD_RUNNERS = {
 }
 
 
-def _rows_until_convergence(method_key: str, fx_str: str, default_n_iter: int) -> int:
+def _method_status(method_key: str, fx_str: str):
     """
-    Cuántas filas de iteración generar para que la tabla TERMINE en la fila del
-    primer "SI" (convergencia), sin filas vacías sobrantes.
-
     Ejecuta el método numérico ya existente (mismos seeds que el Excel vía
-    auto_params) para obtener iteration_count = k de convergencia. Verificado:
-    iteration_count coincide EXACTAMENTE con la fila del "SI" del Excel en los
-    13 métodos.
-
-      - Secante: k=0 y k=1 van fuera del loop y el loop llega hasta k=n_iter,
-        por lo que n_iter = iteration_count.
-      - El resto: genera k=0..n_iter-1, por lo que n_iter = iteration_count + 1.
-
-    Si el método no converge (o no es aplicable / falla), se conserva
-    default_n_iter para mostrar todas las iteraciones calculadas.
+    auto_params) y devuelve (applicable, converged, reason, iteration_count),
+    o None si el método no tiene runner o falla al evaluarse.
     """
     runner = _METHOD_RUNNERS.get(method_key)
     if runner is None:
-        return default_n_iter
+        return None
     try:
         from backend.core.equation_parser import parse_equation
         from backend.core.auto_params import generate_params
@@ -100,15 +91,27 @@ def _rows_until_convergence(method_key: str, fx_str: str, default_n_iter: int) -
         params = generate_params(eq)
         res = runner(eq, params)
     except Exception:
-        return default_n_iter
-    if not getattr(res, "converged", False):
-        return default_n_iter
-    itc = getattr(res, "iteration_count", None)
-    if itc is None:
+        return None
+    return (
+        bool(getattr(res, "applicable", True)),
+        bool(getattr(res, "converged", False)),
+        str(getattr(res, "reason", "") or ""),
+        getattr(res, "iteration_count", None),
+    )
+
+
+def _sized_n_iter(method_key: str, iteration_count, default_n_iter: int) -> int:
+    """
+    Filas de iteración para que la tabla TERMINE en la fila del "SI". Verificado:
+    iteration_count coincide EXACTAMENTE con la fila del "SI" del Excel.
+      - Secante: k=0 y k=1 fuera del loop; loop llega a k=n_iter -> n_iter = itc.
+      - El resto: genera k=0..n_iter-1 -> n_iter = itc + 1.
+    """
+    if iteration_count is None:
         return default_n_iter
     if method_key == "secante":
-        return max(int(itc), 1)
-    return int(itc) + 1
+        return max(int(iteration_count), 1)
+    return int(iteration_count) + 1
 
 
 # ---------------------------------------------------------------------------
@@ -198,14 +201,23 @@ def _build_sheet(wb: Workbook, method_key: str, fx_str: str,
     if params is None:
         params = _default_params(method_key, fx_str)
 
-    # Dimensionar la tabla a la convergencia: terminar en la fila del "SI",
-    # sin filas vacías sobrantes (el freeze queda como red de seguridad).
-    n_iter = _rows_until_convergence(method_key, fx_str, n_iter)
-
-    fpx_str, fppx_str = _compute_derivatives(fx_str)
-
     sheet_name = SHEET_NAMES[method_key]
     ws = wb.create_sheet(title=sheet_name)
+
+    # Si el método NO es aplicable o NO converge para esta ecuación, mostrar un
+    # panel explicativo (con el motivo que ya calcula el backend) en lugar de una
+    # tabla de fórmulas que se llenaría de #NUM!/#DIV/0!.
+    status = _method_status(method_key, fx_str)
+    if status is not None:
+        applicable, converged, reason, itc = status
+        if (not applicable) or (not converged):
+            build_status_panel(ws, method_key, sheet_name, eq_label or fx_str,
+                                applicable, converged, reason, fx_str)
+            return
+        # Convergió: dimensionar la tabla para que termine en la fila del "SI".
+        n_iter = _sized_n_iter(method_key, itc, n_iter)
+
+    fpx_str, fppx_str = _compute_derivatives(fx_str)
 
     template_cls = TEMPLATE_REGISTRY[method_key]
     template = template_cls()

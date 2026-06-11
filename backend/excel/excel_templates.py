@@ -185,6 +185,69 @@ def _data_rows(ws, first_row: int, last_row: int,
             apply_data_style(ws.cell(r, col), k, palette)
 
 
+def build_status_panel(ws, method_key: str, sheet_title: str, eq_label: str,
+                       applicable: bool, converged: bool, reason: str,
+                       fx_str: str = "") -> None:
+    """
+    Hoja explicativa para cuando un método NO es aplicable o NO converge —
+    en lugar de volcar una tabla de fórmulas que se llenaría de #NUM!/#DIV/0!.
+
+    Usa el `reason` que ya calcula el método numérico del backend. No genera
+    fórmulas: es un panel de texto con el motivo.
+    """
+    from openpyxl.styles import Alignment
+    p = PALETTES.get(method_key) or next(iter(PALETTES.values()))
+    wrap = Alignment(wrap_text=True, vertical="top", horizontal="left")
+
+    # Fila 1: título del método (banner)
+    ws.merge_cells("A1:F1")
+    title = ws.cell(1, 1, f"MÉTODO DE {sheet_title.upper()}  —  {eq_label}")
+    apply_footer_style(title, p)
+    ws.row_dimensions[1].height = ROW_HEIGHT_FOOTER
+
+    # Fila 3: estado
+    estado = ("MÉTODO NO APLICABLE PARA ESTA ECUACIÓN" if not applicable
+              else "EL MÉTODO NO CONVERGIÓ")
+    ws.merge_cells("A3:F3")
+    sc = ws.cell(3, 1, estado)
+    apply_header_style(sc, p)
+    ws.row_dimensions[3].height = ROW_HEIGHT_HEADER
+
+    # Fila 5: ecuación
+    apply_label_style(ws.cell(5, 1, "Ecuación:"), p)
+    ws.merge_cells("B5:F5")
+    apply_param_value_style(ws.cell(5, 2, eq_label or fx_str), p)
+
+    # Fila 7: f(x) legible
+    apply_label_style(ws.cell(7, 1, "f(x) ="), p)
+    ws.merge_cells("B7:F7")
+    apply_param_value_style(ws.cell(7, 2, _readable_expr(fx_str) if fx_str else ""), p)
+
+    # Filas 9–16: motivo (texto largo envuelto)
+    apply_label_style(ws.cell(9, 1, "Motivo:"), p)
+    if not applicable:
+        msg = reason or ("El método no es aplicable para esta ecuación con los "
+                         "valores iniciales generados.")
+    else:
+        msg = (
+            "El método no alcanzó la convergencia (error < 0.00001 %) dentro del "
+            "máximo de iteraciones. Esto suele deberse a que la ecuación no tiene una "
+            "raíz real alcanzable desde el valor inicial, a que el método diverge para "
+            "esta f(x), o a una operación no definida durante la iteración (p. ej. raíz "
+            "de un número negativo o división por cero)."
+        )
+        if reason:
+            msg += f"\n\nDiagnóstico del método: {reason}"
+    ws.merge_cells("A10:F16")
+    mcell = ws.cell(10, 1, msg)
+    apply_param_value_style(mcell, p)
+    mcell.alignment = wrap
+    for r in range(10, 17):
+        ws.row_dimensions[r].height = ROW_HEIGHT_DEFAULT
+
+    _set_col_widths(ws, [14, 16, 16, 16, 16, 16])
+
+
 # ---------------------------------------------------------------------------
 # 1. BISECCIÓN
 # ---------------------------------------------------------------------------
