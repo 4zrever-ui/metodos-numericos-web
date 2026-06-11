@@ -440,18 +440,25 @@ class AitkenTemplate:
             r = i + 2   # Aitken result row (cols A–D)
             k = i
             pf_r = i + 3  # corresponding PF data row in col K
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            # C1: freeze SOLO en la tabla principal A–D (conv=D, pivote=p̂ₖ=B).
+            #     La tabla auxiliar PF (I–M) NO se congela: alimenta el lookback Δ².
+            #     Diagnóstico: ningún B="" por IFERROR aparece antes del 1er "SI",
+            #     por lo que B es pivote seguro.
+            conv_prev, pivot_prev = f"D{r-1}", f"B{r-1}"
+
             # p̂ₖ = K[pf_r] - (K[pf_r+1] - K[pf_r])² / (K[pf_r+2] - 2·K[pf_r+1] + K[pf_r])
             kr, kr1, kr2 = f"{K}{pf_r}", f"{K}{pf_r+1}", f"{K}{pf_r+2}"
             # C2 fix: IFERROR eliminates #DIV/0! when Δ² denominator = 0
-            ws.cell(r, 2, f"=IFERROR({kr}-(({kr1}-{kr})^2)/({kr2}-2*{kr1}+{kr}),\"\")")
+            b_body = f'IFERROR({kr}-(({kr1}-{kr})^2)/({kr2}-2*{kr1}+{kr}),"")'
+            ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, b_body, k))
 
             if k == 0:
                 ws.cell(r, 3, "")
                 ws.cell(r, 4, "")
             else:
-                ws.cell(r, 3, f"=ABS((B{r}-B{r-1})/B{r})*100")
-                ws.cell(r, 4, f'=IF(C{r}<0.00001,"SI","NO")')
+                ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, f"ABS((B{r}-B{r-1})/B{r})*100", k))
+                ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, f'IF(C{r}<0.00001,"SI","NO")', k))
             for ci in range(1, 5):
                 apply_data_style(ws.cell(r, ci), k, p)
 
