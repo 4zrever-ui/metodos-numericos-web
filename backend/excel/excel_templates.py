@@ -1104,14 +1104,19 @@ class SecanteTemplate:
         for i in range(2, n_iter + 1):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
-            ws.cell(r, 2, f"=IFERROR(F{r-1},B{r-1})")
-            ws.cell(r, 3, f"=IFERROR({fx(f'B{r}')},0)")
-            ws.cell(r, 4, f"=IFERROR(B{r-1},B{r-1})")
-            ws.cell(r, 5, f"=IFERROR(C{r-1},0)")
-            ws.cell(r, 6, f"=IFERROR(B{r}-(C{r}*(B{r}-D{r})/(C{r}-E{r})),B{r})")
-            ws.cell(r, 7, f"=IFERROR(ABS((F{r}-B{r})/F{r})*100,0)")
-            ws.cell(r, 8, f'=IF(IFERROR(G{r},0)<0.00001,"SI","NO")')
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            # C1: k=0 y k=1 van fuera del loop (hardcodeadas) y nunca se congelan;
+            #     el freeze aplica solo a k>=2. Va como capa MÁS EXTERNA para que el
+            #     "" congelado gane sobre el fallback numérico de cada IFERROR
+            #     (diagnóstico: B nunca queda "" por sí solo). conv=H, pivote=xₖ=B.
+            conv_prev, pivot_prev = f"H{r-1}", f"B{r-1}"
+            ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"IFERROR(F{r-1},B{r-1})", k))
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, f"IFERROR({fx(f'B{r}')},0)", k))
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, f"IFERROR(B{r-1},B{r-1})", k))
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, f"IFERROR(C{r-1},0)", k))
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"IFERROR(B{r}-(C{r}*(B{r}-D{r})/(C{r}-E{r})),B{r})", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f"IFERROR(ABS((F{r}-B{r})/F{r})*100,0)", k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f'IF(IFERROR(G{r},0)<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 3
         _write_footer(
