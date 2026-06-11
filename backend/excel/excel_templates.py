@@ -538,13 +538,15 @@ class SteffensenTemplate:
             jr1 = f"{J}{AIT_DATA + i + 1}"
             jr2 = f"{J}{AIT_DATA + i + 2}"
             ws.cell(r, 1, i)
-            ws.cell(r, 2, f"={jr}-(({jr1}-{jr})^2)/({jr2}-2*{jr1}+{jr})")
+            # C2: IFERROR elimina #DIV/0! cuando el denominador Δ² = 0
+            # (fórmula matemática idéntica dentro del wrapper).
+            ws.cell(r, 2, f'=IFERROR({jr}-(({jr1}-{jr})^2)/({jr2}-2*{jr1}+{jr}),"")')
             if i == 0:
                 ws.cell(r, 3, "")
                 ws.cell(r, 4, "")
             else:
-                ws.cell(r, 3, f"=ABS((B{r}-B{r-1})/B{r})*100")
-                ws.cell(r, 4, f'=IF(C{r}<0.00001,"SI","NO")')
+                ws.cell(r, 3, f'=IFERROR(ABS((B{r}-B{r-1})/B{r})*100,"")')
+                ws.cell(r, 4, f'=IF(C{r}="","",IF(C{r}<0.00001,"SI","NO"))')
             for ci in range(1, 5):
                 apply_data_style(ws.cell(r, ci), i, p)
 
@@ -583,13 +585,15 @@ class SteffensenTemplate:
             kr1  = f"{K}{pf_r + 1}"
             kr2  = f"{K}{pf_r + 2}"
             ws.cell(r, COL_I, i)
-            ws.cell(r, COL_J, f"={kr}-(({kr1}-{kr})^2)/({kr2}-2*{kr1}+{kr})")
+            # C2: IFERROR elimina #DIV/0! cuando el denominador Δ² = 0
+            # (fórmula matemática idéntica dentro del wrapper).
+            ws.cell(r, COL_J, f'=IFERROR({kr}-(({kr1}-{kr})^2)/({kr2}-2*{kr1}+{kr}),"")')
             if i == 0:
                 ws.cell(r, COL_K, "")
                 ws.cell(r, COL_L, "")
             else:
-                ws.cell(r, COL_K, f"=ABS(({J}{r}-{J}{r-1})/{J}{r})*100")
-                ws.cell(r, COL_L, f'=IF({K}{r}<0.00001,"SI","NO")')
+                ws.cell(r, COL_K, f'=IFERROR(ABS(({J}{r}-{J}{r-1})/{J}{r})*100,"")')
+                ws.cell(r, COL_L, f'=IF({K}{r}="","",IF({K}{r}<0.00001,"SI","NO"))')
             for ci in range(COL_I, COL_L + 1):
                 apply_data_style(ws.cell(r, ci), i, p_ait)
 
