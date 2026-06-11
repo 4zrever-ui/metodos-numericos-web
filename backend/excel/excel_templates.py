@@ -334,17 +334,19 @@ class PuntoFijoTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            conv_prev, pivot_prev = f"E{r-1}", f"B{r-1}"  # C1: conv=E, pivote=xₖ=B
+
             if k == 0:
                 ws.cell(r, 2, x0)
                 ws.cell(r, 4, "")
                 ws.cell(r, 5, "")
             else:
-                ws.cell(r, 2, f"=C{r-1}")
-                ws.cell(r, 4, f"=ABS((C{r}-B{r})/C{r})*100")
-                ws.cell(r, 5, f'=IF(D{r}<0.00001,"SI","NO")')
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"C{r-1}", k))
+                ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, f"ABS((C{r}-B{r})/C{r})*100", k))
+                ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, f'IF(D{r}<0.00001,"SI","NO")', k))
 
-            ws.cell(r, 3, f"={gx(f'B{r}')}")
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, gx(f'B{r}'), k))
 
         footer_row = n_iter + 2
         g_display = params.get("g_display", g_str)
@@ -739,20 +741,22 @@ class NewtonModificadoTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            conv_prev, pivot_prev = f"H{r-1}", f"B{r-1}"  # C1: conv=H, pivote=xₖ=B
+
             if k == 0:
                 ws.cell(r, 2, x0)
             else:
-                ws.cell(r, 2, f"=F{r-1}")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"F{r-1}", k))
 
             bref = f"B{r}"
-            ws.cell(r, 3, f"={fx(bref)}")
-            ws.cell(r, 4, f"={fpx(bref)}")
-            ws.cell(r, 5, f"={fpp_ref}")
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, fpx(bref), k))
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, fpp_ref, k))
             # xₙ₊₁ = xₙ - f·f' / (f'² - f·f'')
-            ws.cell(r, 6, f"={bref}-((C{r}*D{r})/(D{r}^2-C{r}*E{r}))")
-            ws.cell(r, 7, f"=ABS((F{r}-{bref})/F{r})*100")
-            ws.cell(r, 8, f'=IF(G{r}<0.00001,"SI","NO")')
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-((C{r}*D{r})/(D{r}^2-C{r}*E{r}))", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f"ABS((F{r}-{bref})/F{r})*100", k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f'IF(G{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
@@ -848,20 +852,22 @@ class ChebyshevTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            conv_prev, pivot_prev = f"H{r-1}", f"B{r-1}"  # C1: conv=H, pivote=xₖ=B
+
             if k == 0:
                 ws.cell(r, 2, x0)
             else:
-                ws.cell(r, 2, f"=F{r-1}")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"F{r-1}", k))
 
             bref = f"B{r}"
-            ws.cell(r, 3, f"={fx(bref)}")
-            ws.cell(r, 4, f"={fpx(bref)}")
-            ws.cell(r, 5, f"={fpp_ref}")
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, fpx(bref), k))
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, fpp_ref, k))
             # xₙ₊₁ = xₙ - f/f' - (f²·f'') / (2·f'³)
-            ws.cell(r, 6, f"={bref}-(C{r}/D{r})-(((C{r}^2)*(E{r}))/(2*(D{r})^3))")
-            ws.cell(r, 7, f"=ABS((F{r}-{bref})/F{r})*100")
-            ws.cell(r, 8, f'=IF(G{r}<0.00001,"SI","NO")')
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-(C{r}/D{r})-(((C{r}^2)*(E{r}))/(2*(D{r})^3))", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f"ABS((F{r}-{bref})/F{r})*100", k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f'IF(G{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
@@ -903,20 +909,22 @@ class HalleyTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            conv_prev, pivot_prev = f"H{r-1}", f"B{r-1}"  # C1: conv=H, pivote=xₖ=B
+
             if k == 0:
                 ws.cell(r, 2, x0)
             else:
-                ws.cell(r, 2, f"=F{r-1}")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"F{r-1}", k))
 
             bref = f"B{r}"
-            ws.cell(r, 3, f"={fx(bref)}")
-            ws.cell(r, 4, f"={fpx(bref)}")
-            ws.cell(r, 5, f"={fpp_ref}")
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, fpx(bref), k))
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, fpp_ref, k))
             # xₙ₊₁ = xₙ - f / (f' - f''·f/(2·f'))
-            ws.cell(r, 6, f"={bref}-(C{r}/(D{r}-(E{r}*C{r})/(2*D{r})))")
-            ws.cell(r, 7, f"=ABS((F{r}-{bref})/F{r})*100")
-            ws.cell(r, 8, f'=IF(G{r}<0.00001,"SI","NO")')
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-(C{r}/(D{r}-(E{r}*C{r})/(2*D{r})))", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f"ABS((F{r}-{bref})/F{r})*100", k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f'IF(G{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
@@ -958,20 +966,22 @@ class SuperHalleyTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+            conv_prev, pivot_prev = f"H{r-1}", f"B{r-1}"  # C1: conv=H, pivote=xₖ=B
+
             if k == 0:
                 ws.cell(r, 2, x0)
             else:
-                ws.cell(r, 2, f"=F{r-1}")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"F{r-1}", k))
 
             bref = f"B{r}"
-            ws.cell(r, 3, f"={fx(bref)}")
-            ws.cell(r, 4, f"={fpx(bref)}")
-            ws.cell(r, 5, f"={fpp_ref}")
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, fpx(bref), k))
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, fpp_ref, k))
             # xₙ₊₁ = xₙ - (2f'² - f·f'') / (2(f'² - f·f'')) · (f/f')
-            ws.cell(r, 6, f"={bref}-(2*(D{r}^2)-C{r}*E{r})/(2*((D{r}^2)-C{r}*E{r}))*((C{r})/(D{r}))")
-            ws.cell(r, 7, f"=ABS((F{r}-{bref})/F{r})*100")
-            ws.cell(r, 8, f'=IF(G{r}<0.00001,"SI","NO")')
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-(2*(D{r}^2)-C{r}*E{r})/(2*((D{r}^2)-C{r}*E{r}))*((C{r})/(D{r}))", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f"ABS((F{r}-{bref})/F{r})*100", k))
+            ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f'IF(G{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
