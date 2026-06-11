@@ -110,6 +110,34 @@ def _math_metadata_rows(
 
     return [row]
 
+def _freeze(conv_ref: str, pivot_ref: str, formula: str, k: int) -> str:
+    """
+    C1 — Detener iteraciones después del primer "SI" (convergencia alcanzada).
+
+    Envuelve la fórmula de una celda de cálculo para que, una vez detectada la
+    convergencia en una fila previa, la celda quede en blanco. El envoltorio es
+    puramente presentacional: el `formula` interno es idéntico al de la versión
+    sin congelar y solo se evalúa mientras la fila sigue "viva" — IF corta el
+    branch falso, de modo que ninguna fila congelada filtra #VALUE!/#DIV/0!.
+
+    La columna k (índice) NUNCA se congela: se escribe como literal entero y
+    sigue visible en todas las filas.
+
+    Args:
+        conv_ref:  celda Convergencia de la fila ANTERIOR, p. ej. "G3"
+        pivot_ref: celda pivote (xₖ) de la fila ANTERIOR, p. ej. "B3"
+        formula:   cuerpo de la fórmula SIN el "=" inicial
+        k:         índice de iteración (base 0)
+
+    Devuelve el cuerpo de la fórmula SIN "=" inicial. El llamador antepone "=".
+    """
+    if k == 0:
+        return formula
+    if k == 1:
+        return f'IF({conv_ref}="SI","",{formula})'
+    return f'IF(OR({conv_ref}="SI",{pivot_ref}=""),"",{formula})'
+
+
 def _set_col_widths(ws, widths: list[float]) -> None:
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
@@ -650,18 +678,23 @@ class NewtonRaphsonTemplate:
         for i in range(n_iter):
             r = i + 2
             k = i
-            ws.cell(r, 1, k)
+            ws.cell(r, 1, k)  # C1: columna k nunca se congela — visible 0…n
+
+            # C1: las refs de freeze apuntan a la fila ANTERIOR
+            #     (conv = Convergencia = G ; pivote = xₖ = B)
+            conv_prev, pivot_prev = f"G{r-1}", f"B{r-1}"
+
             if k == 0:
                 ws.cell(r, 2, x0)
             else:
-                ws.cell(r, 2, f"=E{r-1}")
+                ws.cell(r, 2, "=" + _freeze(conv_prev, pivot_prev, f"E{r-1}", k))
 
             bref = f"B{r}"
-            ws.cell(r, 3, f"={fx(bref)}")
-            ws.cell(r, 4, f"={fpx(bref)}")
-            ws.cell(r, 5, f"={bref}-(C{r}/D{r})")
-            ws.cell(r, 6, f"=ABS((E{r}-{bref})/E{r})*100")
-            ws.cell(r, 7, f'=IF(F{r}<0.00001,"SI","NO")')
+            ws.cell(r, 3, "=" + _freeze(conv_prev, pivot_prev, fx(bref), k))
+            ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, fpx(bref), k))
+            ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-(C{r}/D{r})", k))
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"ABS((E{r}-{bref})/E{r})*100", k))
+            ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f'IF(F{r}<0.00001,"SI","NO")', k))
 
         footer_row = n_iter + 2
         _write_footer(
