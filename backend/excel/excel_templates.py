@@ -43,10 +43,72 @@ from backend.core.sympy_to_excel import (
     to_excel_formula, derivative_to_excel,
     evaluate_derivative_at, expr_to_sympy,
 )
+import sympy as _sp
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _readable_expr(expr_str: str) -> str:
+    """
+    Convert a SymPy-parseable string to a readable Unicode math notation.
+
+    Examples:
+        "x**3 - 2*x - 5"  →  "x³ - 2x - 5"
+        "3*x**2 - 2"       →  "3x² - 2"
+        "6*x"              →  "6x"
+    """
+    _SUP = {"0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+            "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹"}
+    try:
+        expr = _sp.sympify(expr_str, locals={"x": _sp.Symbol("x")})
+        # Use SymPy's pretty printer output as a base
+        s = str(expr)
+    except Exception:
+        s = expr_str
+
+    # Replace **N with Unicode superscripts
+    import re
+    def _sup(m):
+        return "".join(_SUP.get(c, c) for c in m.group(1))
+
+    s = re.sub(r"\*\*(\d+)", _sup, s)
+    # Remove multiplication sign between coefficient and variable (2*x → 2x)
+    s = re.sub(r"(\d)\*([a-zA-Z])", r"\1\2", s)
+    return s
+
+
+def _math_metadata_rows(
+    fx_str: str,
+    fpx_str: str = "",
+    fppx_str: str = "",
+    include_fp: bool = False,
+    include_fpp: bool = False,
+) -> list[list[tuple]]:
+    """
+    Build one extra param_row showing f(x), f'(x), f''(x) in readable notation.
+
+    Returns a list with one row (list of (col, value, is_label) tuples).
+    Always placed as the last entry in param_rows of _write_footer().
+    """
+    row = []
+    fx_label  = _readable_expr(fx_str)
+
+    row.append((1, "f(x) =",  True))
+    row.append((2, fx_label,  False))
+
+    if include_fp and fpx_str:
+        fpx_label = _readable_expr(fpx_str)
+        row.append((3, "f'(x) =",  True))
+        row.append((4, fpx_label,  False))
+
+    if include_fpp and fppx_str:
+        fppx_label = _readable_expr(fppx_str)
+        row.append((5, "f''(x) =",  True))
+        row.append((6, fppx_label,  False))
+
+    return [row]
 
 def _set_col_widths(ws, widths: list[float]) -> None:
     for i, w in enumerate(widths, 1):
@@ -155,7 +217,7 @@ class BiseccionTemplate:
                 (1, "Ecuación:", True), (2, eq_label, False),
                 (4, "Intervalo inicial:", True), (5, f"[a₀, b₀] = [{a0}, {b0}]", False),
                 (7, "Tolerancia:", True), (8, "ε < 1×10⁻⁵ %", False),
-            ]]
+            ]] + _math_metadata_rows(fx_str)
         )
         _set_col_widths(ws, [5, 14, 14, 14, 14, 14, 14, 14, 12, 14])
 
@@ -217,7 +279,7 @@ class RegulaFalsiTemplate:
                 (1, "Ecuación:", True), (2, eq_label, False),
                 (4, "Intervalo inicial:", True), (5, f"[a₀, b₀] = [{a0}, {b0}]", False),
                 (7, "Tolerancia:", True), (8, "ε < 1×10⁻⁵ %", False),
-            ]]
+            ]] + _math_metadata_rows(fx_str)
         )
         _set_col_widths(ws, [5, 14, 14, 14, 14, 14, 14, 14, 12, 14])
 
@@ -265,7 +327,7 @@ class PuntoFijoTemplate:
             [[
                 (1, "Ecuación:", True), (2, eq_label, False),
                 (4, "g(x):", True), (5, g_display, False),
-            ]]
+            ]] + _math_metadata_rows(fx_str)
         )
         _set_col_widths(ws, [5, 16, 20, 12, 14])
 
@@ -347,7 +409,8 @@ class AitkenTemplate:
             ws.cell(r, 1, k)
             # p̂ₖ = K[pf_r] - (K[pf_r+1] - K[pf_r])² / (K[pf_r+2] - 2·K[pf_r+1] + K[pf_r])
             kr, kr1, kr2 = f"{K}{pf_r}", f"{K}{pf_r+1}", f"{K}{pf_r+2}"
-            ws.cell(r, 2, f"={kr}-(({kr1}-{kr})^2)/({kr2}-2*{kr1}+{kr})")
+            # C2 fix: IFERROR eliminates #DIV/0! when Δ² denominator = 0
+            ws.cell(r, 2, f"=IFERROR({kr}-(({kr1}-{kr})^2)/({kr2}-2*{kr1}+{kr}),\"\")")
 
             if k == 0:
                 ws.cell(r, 3, "")
@@ -364,6 +427,7 @@ class AitkenTemplate:
             f"A{footer_row}:D{footer_row}",
             f"MÉTODO DE AITKEN (Δ²)  —  {eq_label}", p,
             [[(1, "Ecuación:", True), (2, eq_label, False), (4, "g(x):", True)]]
+            + _math_metadata_rows(fx_str)
         )
         _set_col_widths(ws, [5, 20, 12, 14, 5, 5, 5, 5, 5, 16, 20, 12, 14])
 
@@ -449,10 +513,12 @@ class SteffensenTemplate:
         apply_footer_style(title_cell, p)
         ws.row_dimensions[STF_FTR].height = ROW_HEIGHT_FOOTER
 
-        # Param label row
+        # Param label row — equation, base note, and f(x) readable notation (C3)
+        fx_label = _readable_expr(fx_str)
         for ci, val, is_label in [
             (1, "Ecuación:", True), (2, eq_label, False),
             (4, "Base: Aitken (Δ² sobre Punto Fijo)", True),
+            (5, "f(x) =", True), (6, fx_label, False),
         ]:
             c = ws.cell(STF_LBL, ci, val)
             if is_label:
@@ -604,7 +670,7 @@ class NewtonRaphsonTemplate:
             [[
                 (1, "Ecuación:", True), (2, eq_label, False),
                 (4, "Fórmula:", True), (5, "xₙ₊₁ = xₙ − f(xₙ)/f'(xₙ)", False),
-            ]]
+            ]] + _math_metadata_rows(fx_str, fpx_str, include_fp=True)
         )
         _set_col_widths(ws, [5, 16, 16, 16, 16, 12, 14])
 
@@ -662,7 +728,7 @@ class NewtonModificadoTemplate:
             [[
                 (1, "Ecuación:", True), (2, eq_label, False),
                 (5, "f''(x₀):", True), (6, str(fpp_val), False),
-            ]]
+            ]] + _math_metadata_rows(fx_str, fpx_str, fppx_str, include_fp=True, include_fpp=True)
         )
         _set_col_widths(ws, [5, 16, 16, 16, 14, 16, 12, 14])
 
@@ -713,6 +779,7 @@ class Newton2doOrdenTemplate:
             ws, footer_row, f"A{footer_row}:H{footer_row}",
             f"MÉTODO DE NEWTON 2DO ORDEN  —  {eq_label}", p,
             [[(1, "Ecuación:", True), (2, eq_label, False)]]
+            + _math_metadata_rows(fx_str, fpx_str, fppx_str, include_fp=True, include_fpp=True)
         )
         _set_col_widths(ws, [5, 16, 16, 16, 14, 16, 12, 14])
 
@@ -768,6 +835,7 @@ class ChebyshevTemplate:
             ws, footer_row, f"A{footer_row}:H{footer_row}",
             f"MÉTODO DE CHEBYSHEV  —  {eq_label}", p,
             [[(1, "Ecuación:", True), (2, eq_label, False)]]
+            + _math_metadata_rows(fx_str, fpx_str, fppx_str, include_fp=True, include_fpp=True)
         )
         _set_col_widths(ws, [5, 16, 16, 16, 14, 16, 12, 14])
 
@@ -822,6 +890,7 @@ class HalleyTemplate:
             ws, footer_row, f"A{footer_row}:H{footer_row}",
             f"MÉTODO DE HALLEY  —  {eq_label}", p,
             [[(1, "Ecuación:", True), (2, eq_label, False)]]
+            + _math_metadata_rows(fx_str, fpx_str, fppx_str, include_fp=True, include_fpp=True)
         )
         _set_col_widths(ws, [5, 16, 16, 16, 14, 16, 12, 14])
 
@@ -876,6 +945,7 @@ class SuperHalleyTemplate:
             ws, footer_row, f"A{footer_row}:H{footer_row}",
             f"MÉTODO DE SUPER HALLEY  —  {eq_label}", p,
             [[(1, "Ecuación:", True), (2, eq_label, False)]]
+            + _math_metadata_rows(fx_str, fpx_str, fppx_str, include_fp=True, include_fpp=True)
         )
         _set_col_widths(ws, [5, 16, 16, 16, 14, 16, 12, 14])
 
@@ -894,9 +964,9 @@ class OstrowskyTemplate:
         p = PALETTES[self.METHOD_KEY]
         x0 = params.get("x0", 1)
 
-        # Note: Ostrowsky header is in row 2, data starts row 3
+        # C6 fix: data starts at row 2 (same as all other methods — row 3 was a bug)
         _write_header(ws, self.HEADERS, p)
-        _data_rows(ws, 3, n_iter + 2, p, self.N_COLS)  # shifted +1
+        _data_rows(ws, 2, n_iter + 1, p, self.N_COLS)
 
         fx  = lambda ref: to_excel_formula(fx_str,  ref)
         fpx = lambda ref: to_excel_formula(fpx_str, ref) if fpx_str else derivative_to_excel(fx_str, ref, 1)
@@ -905,7 +975,7 @@ class OstrowskyTemplate:
             fpp_val = int(fpp_val)
 
         for i in range(n_iter):
-            r = i + 3  # data starts at row 3
+            r = i + 2  # data starts at row 2
             k = i
             ws.cell(r, 1, k)
             if k == 0:
@@ -922,11 +992,12 @@ class OstrowskyTemplate:
             ws.cell(r, 7, f"=ABS((F{r}-{bref})/F{r})*100")
             ws.cell(r, 8, f'=IF(G{r}<0.00001,"SI","NO")')
 
-        footer_row = n_iter + 3
+        footer_row = n_iter + 2
         _write_footer(
             ws, footer_row, f"A{footer_row}:H{footer_row}",
             f"MÉTODO DE OSTROWSKY  —  {eq_label}", p,
             [[(1, "Ecuación:", True), (2, eq_label, False)]]
+            + _math_metadata_rows(fx_str, fpx_str, fppx_str, include_fp=True, include_fpp=True)
         )
         _set_col_widths(ws, [5, 16, 16, 16, 14, 16, 12, 14])
 
@@ -950,12 +1021,14 @@ class SecanteTemplate:
 
         fx = lambda ref: to_excel_formula(fx_str, ref)
 
-        # k=0 row (row 2): only x0 and f(x0)
+        # k=0 row (row 2): x0, f(x0), and also x1/f(x1) as context (C5 fix)
         ws.cell(2, 1, 0)
         ws.cell(2, 2, x0)
         ws.cell(2, 3, f"={fx('B2')}")
-        # cols D,E,F,G,H empty for k=0
-        for col in range(4, 9):
+        ws.cell(2, 4, x1)                  # C5: show x1 seed in D2
+        ws.cell(2, 5, f"={fx('D2')}")      # C5: show f(x1) in E2
+        # cols F,G,H empty for k=0 (no xk+1 computed yet)
+        for col in range(6, 9):
             ws.cell(2, col, "")
 
         # k=1 row (row 3): x1 hardcoded, x0 as D3
@@ -987,7 +1060,7 @@ class SecanteTemplate:
             [[
                 (1, "Ecuación:", True), (2, eq_label, False),
                 (4, "x₀, x₁:", True), (5, f"{x0}, {x1}", False),
-            ]]
+            ]] + _math_metadata_rows(fx_str)
         )
         _set_col_widths(ws, [5, 16, 16, 16, 16, 16, 12, 14])
 
@@ -1038,7 +1111,7 @@ class VonMisesTemplate:
             [[
                 (1, "Ecuación:", True), (2, eq_label, False),
                 (4, "f'(x₀):", True), (5, str(fp_val), False),
-            ]]
+            ]] + _math_metadata_rows(fx_str, fpx_str, include_fp=True)
         )
         _set_col_widths(ws, [5, 16, 16, 18, 16, 12, 14])
 
