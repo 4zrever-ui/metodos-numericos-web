@@ -1101,7 +1101,8 @@ class SecanteTemplate:
         ws.cell(3, 3, f"={fx('B3')}")
         ws.cell(3, 4, "=B2")
         ws.cell(3, 5, "=C2")
-        ws.cell(3, 6, "=B3-(C3*(B3-D3)/(C3-E3))")
+        # IFERROR: evita #DIV/0! cuando f(x1)-f(x0)=0 (mismo patrón que el loop k>=2)
+        ws.cell(3, 6, "=IFERROR(B3-(C3*(B3-D3)/(C3-E3)),B3)")
         ws.cell(3, 7, "=IFERROR(ABS((F3-B3)/F3)*100,0)")
         ws.cell(3, 8, '=IF(IFERROR(G3,0)<0.00001,"SI","NO")')
 
