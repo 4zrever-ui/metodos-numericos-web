@@ -100,6 +100,25 @@ def _method_status(method_key: str, fx_str: str):
     )
 
 
+def _has_real_roots(fx_str: str):
+    """
+    True / False / None(desconocido): ¿la ecuación tiene alguna raíz real?
+    Solo afirma False cuando SymPy resuelve y TODAS las soluciones son complejas
+    (caso claro como x^2+1). Si no puede resolver simbólicamente, devuelve None.
+    """
+    try:
+        import sympy as sp
+        x = sp.Symbol("x")
+        expr = sp.sympify(fx_str.replace("^", "**"), locals={"x": x})
+        sols = sp.solve(expr, x)
+    except Exception:
+        return None
+    if not sols:
+        return None
+    reals = [s for s in sols if getattr(s, "is_real", None) is True]
+    return len(reals) > 0
+
+
 def _sized_n_iter(method_key: str, iteration_count, default_n_iter: int) -> int:
     """
     Filas de iteración para que la tabla TERMINE en la fila del "SI". Verificado:
@@ -212,7 +231,8 @@ def _build_sheet(wb: Workbook, method_key: str, fx_str: str,
         applicable, converged, reason, itc = status
         if (not applicable) or (not converged):
             build_status_panel(ws, method_key, sheet_name, eq_label or fx_str,
-                                applicable, converged, reason, fx_str)
+                                applicable, converged, reason, fx_str,
+                                _has_real_roots(fx_str))
             return
         # Convergió: dimensionar la tabla para que termine en la fila del "SI".
         n_iter = _sized_n_iter(method_key, itc, n_iter)

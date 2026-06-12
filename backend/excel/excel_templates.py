@@ -185,67 +185,98 @@ def _data_rows(ws, first_row: int, last_row: int,
             apply_data_style(ws.cell(r, col), k, palette)
 
 
+def _panel_message(method_key: str, applicable: bool, has_real_roots) -> tuple[str, str, str]:
+    """
+    Mensaje en lenguaje claro (sin números crudos) según la causa REAL.
+    Devuelve (titulo, cuerpo, sugerencia).
+    """
+    if has_real_roots is False:
+        return (
+            "Esta ecuación no tiene raíces reales",
+            ("La gráfica de f(x) nunca cruza el eje X, así que no existe ningún número "
+             "real donde f(x) = 0. Por eso ningún método numérico puede encontrar una "
+             "raíz para esta ecuación."),
+            "Prueba una ecuación que sí cruce el eje X, por ejemplo  x³ − 2x − 5.",
+        )
+    if not applicable:
+        if method_key in ("biseccion", "regula_falsi"):
+            return (
+                "Este método no se puede aplicar a esta ecuación",
+                ("Este método necesita un intervalo donde la función cambie de signo "
+                 "(negativa en un extremo y positiva en el otro). El intervalo analizado "
+                 "no cumple esa condición."),
+                "Prueba con otro intervalo, o usa un método que parta de un solo punto, como Newton-Raphson.",
+            )
+        if method_key in ("punto_fijo", "aitken", "steffensen"):
+            return (
+                "Este método no se puede aplicar a esta ecuación",
+                ("No se pudo construir una forma g(x) estable para iterar esta ecuación "
+                 "con este método: la iteración no se acerca a la raíz."),
+                "Prueba con otro método, por ejemplo Newton-Raphson o Bisección.",
+            )
+        return (
+            "Este método no se puede aplicar a esta ecuación",
+            ("Las condiciones que este método necesita para funcionar no se cumplen para "
+             "esta ecuación con los valores generados."),
+            "Prueba con otro método o cambia los valores iniciales.",
+        )
+    return (
+        "El método no convergió",
+        ("El método no logró acercarse lo suficiente a una raíz dentro del máximo de "
+         "iteraciones. Puede que diverja para esta ecuación o que el valor inicial esté "
+         "demasiado lejos de la raíz."),
+        "Prueba con otro método o cambia el valor inicial.",
+    )
+
+
 def build_status_panel(ws, method_key: str, sheet_title: str, eq_label: str,
                        applicable: bool, converged: bool, reason: str,
-                       fx_str: str = "") -> None:
+                       fx_str: str = "", has_real_roots=None) -> None:
     """
-    Hoja explicativa para cuando un método NO es aplicable o NO converge —
-    en lugar de volcar una tabla de fórmulas que se llenaría de #NUM!/#DIV/0!.
-
-    Usa el `reason` que ya calcula el método numérico del backend. No genera
-    fórmulas: es un panel de texto con el motivo.
+    Hoja explicativa (no tabla) para cuando un método NO es aplicable o NO
+    converge. Mensaje en lenguaje claro: explica la causa real (p. ej. "la
+    ecuación no tiene raíces reales") en vez del síntoma técnico interno.
     """
-    from openpyxl.styles import Alignment
+    from openpyxl.styles import Alignment, Font
     p = PALETTES.get(method_key) or next(iter(PALETTES.values()))
-    wrap = Alignment(wrap_text=True, vertical="top", horizontal="left")
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    body_al = Alignment(horizontal="left", vertical="top", wrap_text=True)
 
-    # Fila 1: título del método (banner)
+    fx_readable = _readable_expr(fx_str) if fx_str else (eq_label or "")
+    titulo, cuerpo, sugerencia = _panel_message(method_key, applicable, has_real_roots)
+
+    _set_col_widths(ws, [3, 17, 17, 17, 17, 17])
+
+    # Banner de título
     ws.merge_cells("A1:F1")
-    title = ws.cell(1, 1, f"MÉTODO DE {sheet_title.upper()}  —  {eq_label}")
-    apply_footer_style(title, p)
-    ws.row_dimensions[1].height = ROW_HEIGHT_FOOTER
+    t = ws.cell(1, 1, f"MÉTODO DE {sheet_title.upper()}      f(x) = {fx_readable}")
+    apply_footer_style(t, p)
+    t.alignment = center
+    ws.row_dimensions[1].height = 26
 
-    # Fila 3: estado
-    estado = ("MÉTODO NO APLICABLE PARA ESTA ECUACIÓN" if not applicable
-              else "EL MÉTODO NO CONVERGIÓ")
+    # Banner de estado
     ws.merge_cells("A3:F3")
-    sc = ws.cell(3, 1, estado)
-    apply_header_style(sc, p)
-    ws.row_dimensions[3].height = ROW_HEIGHT_HEADER
+    s = ws.cell(3, 1, titulo)
+    apply_header_style(s, p)
+    s.alignment = center
+    ws.row_dimensions[3].height = 24
 
-    # Fila 5: ecuación
-    apply_label_style(ws.cell(5, 1, "Ecuación:"), p)
-    ws.merge_cells("B5:F5")
-    apply_param_value_style(ws.cell(5, 2, eq_label or fx_str), p)
+    # Mensaje principal (texto claro, sin fondo)
+    ws.merge_cells("A5:F9")
+    b = ws.cell(5, 1, cuerpo)
+    b.font = Font(size=12)
+    b.alignment = body_al
+    for r in range(5, 10):
+        ws.row_dimensions[r].height = 16
 
-    # Fila 7: f(x) legible
-    apply_label_style(ws.cell(7, 1, "f(x) ="), p)
-    ws.merge_cells("B7:F7")
-    apply_param_value_style(ws.cell(7, 2, _readable_expr(fx_str) if fx_str else ""), p)
-
-    # Filas 9–16: motivo (texto largo envuelto)
-    apply_label_style(ws.cell(9, 1, "Motivo:"), p)
-    if not applicable:
-        msg = reason or ("El método no es aplicable para esta ecuación con los "
-                         "valores iniciales generados.")
-    else:
-        msg = (
-            "El método no alcanzó la convergencia (error < 0.00001 %) dentro del "
-            "máximo de iteraciones. Esto suele deberse a que la ecuación no tiene una "
-            "raíz real alcanzable desde el valor inicial, a que el método diverge para "
-            "esta f(x), o a una operación no definida durante la iteración (p. ej. raíz "
-            "de un número negativo o división por cero)."
-        )
-        if reason:
-            msg += f"\n\nDiagnóstico del método: {reason}"
-    ws.merge_cells("A10:F16")
-    mcell = ws.cell(10, 1, msg)
-    apply_param_value_style(mcell, p)
-    mcell.alignment = wrap
-    for r in range(10, 17):
-        ws.row_dimensions[r].height = ROW_HEIGHT_DEFAULT
-
-    _set_col_widths(ws, [14, 16, 16, 16, 16, 16])
+    # Sugerencia (caja con leve color del método)
+    ws.merge_cells("A11:F13")
+    g = ws.cell(11, 1, f"Sugerencia:   {sugerencia}")
+    g.font = Font(size=12, italic=True)
+    g.alignment = body_al
+    g.fill = solid_fill(p.light1)
+    for r in range(11, 14):
+        ws.row_dimensions[r].height = 16
 
 
 # ---------------------------------------------------------------------------
