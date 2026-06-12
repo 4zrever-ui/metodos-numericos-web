@@ -52,6 +52,26 @@ def root():
         "mensaje": "API Métodos Numéricos funcionando"
     }
 
+@app.post("/params")
+def get_params(data: dict):
+    """Devuelve los parámetros automáticos para una ecuación, sin ejecutar ningún método."""
+    equation = _eq(data)
+    try:
+        eq = parse_equation(equation)
+        p = generate_params(eq)
+        return {
+            "x0":  p.x0,
+            "x0_alt": p.x0_alt,
+            "a":   p.a,
+            "b":   p.b,
+            "tol": p.tol,
+            "gx":  str(p.gx_sympy) if p.gx_sympy is not None else None,
+            "roots": p.roots_approx,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.post("/analyze")
 def analyze(data: dict):
 
@@ -120,6 +140,20 @@ def method_secante(data: dict):
 
     return result
 
+def _parse_gx(data: dict):
+    """Parsea el string de g(x) enviado por el usuario, o devuelve None si no hay."""
+    raw = data.get("gx", "")
+    if not raw or not str(raw).strip():
+        return None
+    try:
+        import sympy as sp
+        x = sp.Symbol("x")
+        expr = sp.sympify(str(raw).replace("^", "**"), locals={"x": x})
+        return expr
+    except Exception:
+        return None
+
+
 @app.post("/method/punto_fijo")
 def method_punto_fijo(data: dict):
 
@@ -128,6 +162,10 @@ def method_punto_fijo(data: dict):
     eq = parse_equation(equation)
 
     params = generate_params(eq)
+
+    gx_manual = _parse_gx(data)
+    if gx_manual is not None:
+        params.gx_sympy = gx_manual
 
     result = run_punto_fijo(eq, params, x0=_x0(data), tol=_tol(data))
 
@@ -331,6 +369,48 @@ def method_all(data: dict):
     return {"equation": equation, "results": results}
 
 
+def _excel_params(method_key: str, data: dict) -> dict | None:
+    """
+    Construye el dict de params para excel_generator a partir de los valores
+    manuales que manda el frontend. Si no hay ninguno, devuelve None (auto).
+    Claves esperadas por excel_generator:
+      biseccion / regula_falsi  → a0, b0
+      secante                   → x0, x1
+      punto_fijo/aitken/steff.  → x0, g_str, g_display
+      resto                     → x0
+    """
+    interval  = {"biseccion", "regula_falsi"}
+    two_point = {"secante"}
+    g_methods = {"punto_fijo", "aitken", "steffensen"}
+
+    a   = data.get("a")
+    b   = data.get("b")
+    x0  = data.get("x0")
+    x1  = data.get("x1")
+    gx  = (data.get("gx") or "").strip()
+
+    if method_key in interval:
+        if a is not None and b is not None:
+            return {"a0": float(a), "b0": float(b)}
+    elif method_key in two_point:
+        if x0 is not None or x1 is not None:
+            p: dict = {}
+            if x0 is not None: p["x0"] = float(x0)
+            if x1 is not None: p["x1"] = float(x1)
+            return p or None
+    elif method_key in g_methods:
+        p = {}
+        if x0 is not None: p["x0"] = float(x0)
+        if gx:
+            p["g_str"]     = gx
+            p["g_display"] = f"g(x) = {gx}"
+        return p or None
+    else:
+        if x0 is not None:
+            return {"x0": float(x0)}
+    return None
+
+
 @app.post("/excel/single")
 def excel_single(data: dict):
     """Genera y descarga un Excel de un método individual."""
@@ -343,7 +423,8 @@ def excel_single(data: dict):
     }
     method_key = KEY_MAP.get(method_key, method_key)
 
-    xlsx_bytes = generate_single(method_key, equation, eq_label=equation)
+    params = _excel_params(method_key, data)
+    xlsx_bytes = generate_single(method_key, equation, params=params, eq_label=equation)
     filename   = f"metodos_numericos_{method_key}.xlsx"
 
     return StreamingResponse(
@@ -358,7 +439,23 @@ def excel_all(data: dict):
     """Genera y descarga un Excel con los 14 métodos en hojas separadas."""
     equation = _eq(data)
 
-    xlsx_bytes = generate_all(equation, eq_label=equation)
+    # Construir overrides manuales para cada método
+    all_keys = [
+        "biseccion", "regula_falsi", "punto_fijo", "aitken", "steffensen",
+        "secante", "newton_raphson", "newton_modificado", "newton_2do_orden",
+        "chebyshev", "halley", "super_halley", "ostrowsky", "von_mises",
+    ]
+    params_per_method = {}
+    for mk in all_keys:
+        p = _excel_params(mk, data)
+        if p:
+            params_per_method[mk] = p
+
+    xlsx_bytes = generate_all(
+        equation,
+        params_per_method=params_per_method or None,
+        eq_label=equation,
+    )
 
     return StreamingResponse(
         io.BytesIO(xlsx_bytes),
