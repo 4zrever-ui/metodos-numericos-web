@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import "./App.css";
 
-const API = "http://127.0.0.1:8000";
+const API = "https://metodos-numericos-web.onrender.com";
 
 const METHODS = {
   newton:               { label: "Newton-Raphson",    url: "/method/newton",               params: ["x0", "tol"] },
