@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import "./App.css";
 
-const API = "https://metodos-numericos-web.onrender.com";
+const API = "http://127.0.0.1:8000";
 
 const METHODS = {
   newton:               { label: "Newton-Raphson",    url: "/method/newton",               params: ["x0", "tol"] },
@@ -488,7 +488,7 @@ function FunctionGraph({ equation, roots = [] }) {
   // Redraw on equation/roots change
   React.useEffect(() => { draw(); }, [draw]);
 
-  // Resize observer
+  // Resize observer + wheel con passive:false para evitar scroll de página
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -501,23 +501,23 @@ function FunctionGraph({ equation, roots = [] }) {
     canvas.width  = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
     draw();
-    return () => ro.disconnect();
-  }, [draw]);
 
-  // Zoom
-  const onWheel = (e) => {
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const s = stateRef.current;
-    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    s.ox = mx - (mx - s.ox) * factor;
-    s.oy = my - (my - s.oy) * factor;
-    s.scale *= factor;
-    draw();
-  };
+    const onWheel = (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const s = stateRef.current;
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      s.ox = mx - (mx - s.ox) * factor;
+      s.oy = my - (my - s.oy) * factor;
+      s.scale *= factor;
+      draw();
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => { ro.disconnect(); canvas.removeEventListener("wheel", onWheel); };
+  }, [draw]);
 
   // Drag
   const onMouseDown = (e) => {
@@ -610,7 +610,6 @@ function FunctionGraph({ equation, roots = [] }) {
       <canvas
         ref={canvasRef}
         style={{ width: "100%", height: "100%", cursor: "grab", display: "block" }}
-        onWheel={onWheel}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
