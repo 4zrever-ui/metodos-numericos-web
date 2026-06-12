@@ -1145,8 +1145,9 @@ class OstrowskyTemplate:
             ws.cell(r, 4, "=" + _freeze(conv_prev, pivot_prev, fpx(bref), k))
             # C1: f''(xₖ) constante — literal→fórmula para vaciar la fila congelada
             ws.cell(r, 5, "=" + _freeze(conv_prev, pivot_prev, str(fpp_val), k))
-            # xₙ₊₁ = xₙ - (f'/sqrt(f'²-f·f'')) · (f/f')
-            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-(D{r}/((D{r}^2-C{r}*E{r})^(1/2)))*(C{r}/D{r})", k))
+            # P1 fix: xₙ₊₁ = xₙ - f·SIGN(f')/√(f'²-f·f'')  (preserva el signo de f';
+            # idéntica a run_ostrowsky en newton_family.py)
+            ws.cell(r, 6, "=" + _freeze(conv_prev, pivot_prev, f"{bref}-C{r}*SIGN(D{r})/((D{r}^2-C{r}*E{r})^(1/2))", k))
             ws.cell(r, 7, "=" + _freeze(conv_prev, pivot_prev, f"ABS((F{r}-{bref})/F{r})*100", k))
             ws.cell(r, 8, "=" + _freeze(conv_prev, pivot_prev, f'IF(G{r}<0.00001,"SI","NO")', k))
 

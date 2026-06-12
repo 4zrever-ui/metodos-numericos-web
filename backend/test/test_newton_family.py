@@ -8,7 +8,7 @@ Cubre las 6 variantes de orden superior, una clase por variante:
   - Chebyshev:           xn+1 = xn - (f/f') - [(f²·f'') / (2·(f')³)]
   - Halley:              xn+1 = xn - f / [f' - (f''·f)/(2·f')]
   - Super Halley:        xn+1 = xn - [2(f')²-ff''] / [2((f')²-ff'')] · (f/f')
-  - Ostrowsky:           xn+1 = xn - (f'/√(f'²-f·f'')) · (f/f')
+  - Ostrowsky:           xn+1 = xn - f·signo(f') / √(f'²-f·f'')
 
 Ecuación de referencia: x^3 - 4x + 1
   f'(1)=-1, f''(1)=6
@@ -312,6 +312,29 @@ class TestOstrowsky:
         result = run_ostrowsky(eq_base, params_newton_family_valido, x0=1.0)
         if result.converged:
             assert result.iteration_count < 10
+
+    def test_signo_fp_negativo_x2_menos_7(self):
+        """P1 (regresión): la fórmula antigua (f'/√)·(f/f') cancelaba f' y perdía
+        su signo (√ siempre ≥ 0) → divergía cuando f'(x0)<0. Con x^2-7 desde
+        x0=-3 (f'=-6<0) ahora debe converger a -√7; desde x0=+3 a +√7."""
+        import math
+        from backend.core.auto_params import AutoParams
+        eq = parse_equation("x^2 - 7")
+        params = AutoParams(
+            a=2.5, b=3.0, x0=-3.0, x0_alt=-2.0, x0_von_mises=-3.0,
+            tol=0.00001, max_iter=25,
+            gx_sympy=None, gx_excel="", gx_latex="",
+            gx_candidates=[], roots_approx=[-math.sqrt(7), math.sqrt(7)],
+            f_sign_change_found=True,
+        )
+        # semilla negativa (f'<0): antes divergía, ahora converge a -√7
+        r_neg = run_ostrowsky(eq, params, x0=-3.0)
+        assert r_neg.converged is True
+        assert abs(r_neg.root - (-math.sqrt(7))) < 1e-6
+        # semilla positiva (f'>0): ya funcionaba, no debe romperse
+        r_pos = run_ostrowsky(eq, params, x0=3.0)
+        assert r_pos.converged is True
+        assert abs(r_pos.root - math.sqrt(7)) < 1e-6
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -220,10 +220,13 @@ def run_ostrowsky(
         sqrt_inner = math.sqrt(inner)
         if abs(sqrt_inner) < 1e-15 or abs(fp) < 1e-15:
             raise ZeroDivisionError
-        return x - (fp / sqrt_inner) * (f / fp)
+        # P1 fix: la forma original (fp/√)·(f/fp) cancelaba fp y perdía su
+        # signo (√ siempre ≥ 0) → divergía cuando f'<0. Preservamos el signo
+        # de f' con copysign: xₙ₊₁ = xₙ − f·signo(f') / √(f'²−f·f'').
+        return x - f * math.copysign(1.0, fp) / sqrt_inner
 
     return _iterate(
         "Ostrowsky", "Ostrowsky",
-        "xₙ₊₁ = xₙ − (f'/√(f'²−f·f'')) · (f/f')",
+        "xₙ₊₁ = xₙ − f·signo(f') / √(f'²−f·f'')",
         step, eq, params, x0, max_iter, tol,
     )
