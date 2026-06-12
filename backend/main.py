@@ -19,7 +19,8 @@ from backend.methods.newton_family import (
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from backend.excel.excel_generator import generate_single, generate_all
+from backend.excel.excel_generator import generate_single, generate_all, _has_real_roots
+from backend.excel.excel_templates import _panel_message
 import io
 
 app = FastAPI(title="Métodos Numéricos API")
@@ -248,6 +249,30 @@ def method_ostrowsky(data: dict):
     result = run_ostrowsky(eq, params, x0=_x0(data), tol=_tol(data))
 
     return result
+
+
+@app.post("/diagnose")
+def diagnose(data: dict):
+    """
+    Explicación clara cuando un método no aplica o no converge. Reutiliza la
+    misma lógica que el panel del Excel (causa real + mensaje en lenguaje
+    simple), para no duplicarla en el frontend.
+    """
+    equation   = _eq(data)
+    method_key = data.get("method_key", "")
+    applicable = data.get("applicable", True)
+
+    KEY_MAP = {"newton": "newton_raphson", "newton_segundo_orden": "newton_2do_orden"}
+    method_key = KEY_MAP.get(method_key, method_key)
+
+    has_roots = _has_real_roots(equation)
+    title, body, suggestion = _panel_message(method_key, applicable, has_roots)
+    return {
+        "has_real_roots": has_roots,
+        "title": title,
+        "body": body,
+        "suggestion": suggestion,
+    }
 
 
 # ---------------------------------------------------------------------------

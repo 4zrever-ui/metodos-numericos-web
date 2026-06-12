@@ -73,6 +73,26 @@ async function descargarBlob(url, body, filename) {
   URL.revokeObjectURL(href);
 }
 
+// ── Explicación clara cuando un método no aplica / no converge ────────────────
+async function fetchDiagnose(equation, methodKey, applicable) {
+  try {
+    const res = await fetch(`${API}/diagnose`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ equation, method_key: methodKey, applicable }),
+    });
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch {
+    return {
+      has_real_roots: null,
+      title: applicable ? "El método no convergió" : "Este método no se puede aplicar",
+      body: "No se encontró una raíz para esta ecuación con este método.",
+      suggestion: "Prueba con otra ecuación, otro método o cambia los valores iniciales.",
+    };
+  }
+}
+
 // ── Componentes de tabla de iteraciones (flujo individual) ────────────────────
 function IterationTable({ iterations }) {
   if (!iterations || iterations.length === 0) return null;
@@ -122,6 +142,27 @@ function Summary({ result, methodLabel }) {
         <div className="summary-card">
           <span className="summary-label">Error final</span>
           <span className="summary-value mono">{result.final_error_pct.toExponential(4)}%</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Aviso claro cuando no hay raíz (no aplica / no converge) ──────────────────
+function MethodNotice({ notice }) {
+  if (!notice) return null;
+  const noRoots = notice.has_real_roots === false;
+  return (
+    <div className={`notice-card ${noRoots ? "notice-card--info" : "notice-card--warn"}`}>
+      <div className="notice-head">
+        <span className="notice-icon">{noRoots ? "ⓘ" : "⚠"}</span>
+        <span className="notice-title">{notice.title}</span>
+      </div>
+      <p className="notice-body">{notice.body}</p>
+      {notice.suggestion && (
+        <div className="notice-hint">
+          <span className="notice-hint-label">Sugerencia</span>
+          {notice.suggestion}
         </div>
       )}
     </div>
@@ -224,10 +265,12 @@ export default function App() {
   const [showParams, setShowParams]     = useState(false);
   const [result, setResult]             = useState(null);
   const [error, setError]               = useState(null);
+  const [notice, setNotice]             = useState(null);
   const [loading, setLoading]           = useState(false);
 
   // Estado del flujo comparativo — independiente, no toca nada de arriba
   const [allResults, setAllResults]     = useState(null);
+  const [allNotice, setAllNotice]       = useState(null);
   const [loadingAll, setLoadingAll]     = useState(false);
   const [errorAll, setErrorAll]         = useState(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
@@ -239,6 +282,7 @@ export default function App() {
     setManualParams({});
     setResult(null);
     setError(null);
+    setNotice(null);
   };
 
   const handleParamChange = (key, val) => {
@@ -253,6 +297,7 @@ export default function App() {
       return;
     }
     setError(null);
+    setNotice(null);
     setResult(null);
     setLoading(true);
     try {
@@ -275,12 +320,12 @@ export default function App() {
       }
       const data = await res.json();
       if (!data || typeof data !== "object") throw new Error("Respuesta inválida del backend.");
-      if (data.applicable === false) {
-        setError(`Método no aplicable: ${data.reason}`);
+      const applicable = data.applicable !== false;
+      if (!applicable || !data.converged) {
+        const diag = await fetchDiagnose(equation.trim(), method, applicable);
+        setNotice(diag);
+        setResult(applicable ? data : null); // si no aplica, no hay tabla útil
         return;
-      }
-      if (!data.converged) {
-        setError(`El método no convergió en ${data.iteration_count} iteraciones.`);
       }
       setResult(data);
     } catch (e) {
@@ -301,6 +346,7 @@ export default function App() {
       return;
     }
     setErrorAll(null);
+    setAllNotice(null);
     setAllResults(null);
     setLoadingAll(true);
     try {
@@ -317,6 +363,11 @@ export default function App() {
       }
       const data = await res.json();
       setAllResults(data.results);
+      const algunoConverge = (data.results || []).some((r) => r.converged);
+      if (!algunoConverge) {
+        const diag = await fetchDiagnose(equation.trim(), "", true);
+        setAllNotice(diag.has_real_roots === false ? diag : null);
+      }
     } catch (e) {
       setErrorAll(
         e instanceof TypeError && e.message.includes("fetch")
@@ -445,6 +496,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ── Bloque 3b: Aviso claro (no aplica / no converge) ── */}
+      {notice && <MethodNotice notice={notice} />}
+
       {/* ── Bloque 4: Resumen flujo individual ── */}
       {result && <Summary result={result} methodLabel={METHODS[method].label} />}
 
@@ -476,6 +530,7 @@ export default function App() {
               {downloadingAll ? "Generando…" : "↓ Descargar Excel completo"}
             </button>
           </div>
+          {allNotice && <MethodNotice notice={allNotice} />}
           <ComparisonTable results={allResults} equation={equation.trim()} />
         </section>
       )}
