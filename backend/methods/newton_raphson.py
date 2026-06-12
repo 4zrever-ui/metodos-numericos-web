@@ -88,8 +88,7 @@ def run(
 
         xk = x_next
 
-    if root is None and rows:
-        root = rows[-1].x_next
+    # Paso 1 (coherencia): si NO convergió, root queda None (no la última iteración).
 
     return MethodResult(
         method_name="Newton-Raphson",
@@ -102,7 +101,7 @@ def run(
         root=root,
         final_error_pct=final_error,
         converged=converged,
-        iteration_count=len(rows) - 1,
+        iteration_count=max(0, len(rows) - 1),
         excel_sheet_name=_SHEET_NAME,
         formula_description="xₙ₊₁ = xₙ − f(xₙ) / f'(xₙ)",
     )

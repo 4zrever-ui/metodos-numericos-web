@@ -91,8 +91,7 @@ def run(
 
         xk = x_next
 
-    if root is None and rows:
-        root = rows[-1].x_next
+    # Paso 1 (coherencia): si NO convergió, root queda None (no la última iteración).
 
     return MethodResult(
         method_name="Von Mises", applicable=True,
@@ -100,7 +99,7 @@ def run(
         equation_str=eq.raw, f_latex=eq.f_latex, fp_latex=eq.fp_latex,
         fpp_latex=eq.fpp_latex, params_used=params_used,
         iterations=rows, root=root, final_error_pct=final_error,
-        converged=converged, iteration_count=len(rows) - 1,
+        converged=converged, iteration_count=max(0, len(rows) - 1),
         excel_sheet_name=_SHEET_NAME,
         formula_description="xₙ₊₁ = xₙ − f(xₙ) / f'(x₀)",
     )

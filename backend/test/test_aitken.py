@@ -133,13 +133,13 @@ class TestAitkenInaplicable:
         )
         result = run(eq_base, params_div, x0=1.0)
         # g diverge: base_seq se trunca antes de tener 3 elementos
-        assert result.applicable is False or (result.applicable is True and result.root is not None)
+        assert (result.root is not None) == result.converged  # coherencia: root sólo si convergió
 
     def test_no_convergencia_max_iter_pequeno(self, eq_base, params_gx_convergente):
         """Con max_iter=1, no debe converger (necesita al menos k=2 pasos en Δ²)."""
         result = run(eq_base, params_gx_convergente, x0=0.0, max_iter=1)
-        # max_iter muy pequeño: puede no converger pero debe devolver root
-        assert result.root is not None
+        # max_iter muy pequeño: si no converge, root queda None (coherencia)
+        assert (result.root is not None) == result.converged
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -190,8 +190,7 @@ def run(
         else:
             cur_a = c
 
-    if root is None:
-        root = rows[-1].c
+    # Paso 1 (coherencia): si NO convergió, root queda None (no la última iteración).
 
     return MethodResult(
         method_name="Bisección",
@@ -206,7 +205,7 @@ def run(
         root=root,
         final_error_pct=final_error,
         converged=converged,
-        iteration_count=len(rows) - 1,
+        iteration_count=max(0, len(rows) - 1),
         excel_sheet_name=_SHEET_NAME,
         formula_description="cₙ = (aₙ + bₙ) / 2",
     )

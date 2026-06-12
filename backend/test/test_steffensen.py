@@ -114,8 +114,8 @@ class TestSteffensenInaplicable:
             f_sign_change_found=True,
         )
         result = run(eq_base, params_div, x0=1.0)
-        # base_seq será corta → not applicable o applicable con root
-        assert result.root is not None or result.applicable is False
+        # base_seq corta → no aplicable o no converge; root sólo si convergió
+        assert (result.root is not None) == result.converged
 
     def test_base_seq_exactamente_5_frontera(self, eq_base):
         """RIESGO FRONTERA: exactamente 5 elementos en base_seq: mínimo para pasar el check.
@@ -145,8 +145,8 @@ class TestSteffensenInaplicable:
             f_sign_change_found=True,
         )
         result = run(eq_base, params, x0=0.0, max_iter=1)
-        # base_seq larga (11 puntos) → aitken_seq = 9 puntos → aplicable
-        assert result.root is not None
+        # base_seq larga → aplicable; root sólo si convergió (coherencia)
+        assert (result.root is not None) == result.converged
 
 
 # ──────────────────────────────────────────────────────────────────────────────

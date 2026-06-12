@@ -68,7 +68,7 @@ class TestNewtonModificado:
         """Con max_iter=1 no converge, pero root debe ser no None."""
         result = run_newton_modificado(eq_base, params_no_convergencia, x0=1.0, max_iter=1)
         assert result.applicable is True
-        assert result.root is not None
+        assert (result.root is not None) == result.converged  # coherencia: root sólo si convergió
 
     def test_method_name(self, eq_base, params_newton_family_valido):
         """Verifica que method_name y excel_sheet_name sean correctos."""
@@ -126,8 +126,9 @@ class TestNewton2doOrden:
             f_sign_change_found=True,
         )
         result = run_newton_segundo_orden(eq_lineal, params_lineal, x0=0.0)
-        # f'(x)=1≠0, pero f''=0 → ZeroDivisionError en step() → break
-        assert result.root is not None
+        # f'(x)=1≠0, pero f''=0 → ZeroDivisionError → break → no converge → root None
+        assert result.converged is False
+        assert result.root is None  # coherencia: sin convergencia no se devuelve raíz
 
     def test_method_name(self, eq_base, params_newton_family_valido):
         result = run_newton_segundo_orden(eq_base, params_newton_family_valido, x0=1.0)
@@ -135,7 +136,7 @@ class TestNewton2doOrden:
 
     def test_no_convergencia_max_iter(self, eq_base, params_newton_family_valido):
         result = run_newton_segundo_orden(eq_base, params_newton_family_valido, x0=1.0, max_iter=1)
-        assert result.root is not None
+        assert (result.root is not None) == result.converged  # coherencia
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -182,7 +183,7 @@ class TestChebyshev:
 
     def test_no_convergencia_max_iter(self, eq_base, params_newton_family_valido):
         result = run_chebyshev(eq_base, params_newton_family_valido, x0=1.0, max_iter=1)
-        assert result.root is not None
+        assert (result.root is not None) == result.converged  # coherencia
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -222,7 +223,7 @@ class TestHalley:
 
     def test_no_convergencia_max_iter(self, eq_base, params_newton_family_valido):
         result = run_halley(eq_base, params_newton_family_valido, x0=1.0, max_iter=1)
-        assert result.root is not None
+        assert (result.root is not None) == result.converged  # coherencia
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -263,7 +264,7 @@ class TestSuperHalley:
 
     def test_no_convergencia_max_iter(self, eq_base, params_newton_family_valido):
         result = run_super_halley(eq_base, params_newton_family_valido, x0=1.0, max_iter=1)
-        assert result.root is not None
+        assert (result.root is not None) == result.converged  # coherencia
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -305,7 +306,7 @@ class TestOstrowsky:
 
     def test_no_convergencia_max_iter(self, eq_base, params_newton_family_valido):
         result = run_ostrowsky(eq_base, params_newton_family_valido, x0=1.0, max_iter=1)
-        assert result.root is not None
+        assert (result.root is not None) == result.converged  # coherencia
 
     def test_convergencia_rapida(self, eq_base, params_newton_family_valido):
         """Ostrowsky es de orden 4: debe converger en muy pocas iteraciones."""

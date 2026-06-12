@@ -156,7 +156,8 @@ def run(
         prev_hat = hat
 
     if root is None and rows:
-        root = rows[-1].xk_hat
+        # Paso 1 (coherencia): NO devolver la última iteración como root (basura
+        # si no convergió). Se conserva converged_k para el iteration_count.
         converged_k = rows[-1].k
 
     return MethodResult(

@@ -97,15 +97,15 @@ def _iterate(
 
         xk = x_next
 
-    if root is None:
-        root = rows[-1].x_next if rows else xk
+    # Paso 1 (coherencia front/back/Excel): si NO convergió, root queda None.
+    # No devolver la última iteración como raíz — puede ser basura (1e261, etc.).
 
     return MethodResult(
         method_name=method_name, applicable=True, reason=reason,
         equation_str=eq.raw, f_latex=eq.f_latex, fp_latex=eq.fp_latex,
         fpp_latex=eq.fpp_latex, params_used=params_used,
         iterations=rows, root=root, final_error_pct=final_error,
-        converged=converged, iteration_count=len(rows) - 1,
+        converged=converged, iteration_count=max(0, len(rows) - 1),
         excel_sheet_name=sheet_name, formula_description=formula_desc,
     )
 

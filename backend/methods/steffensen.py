@@ -232,8 +232,7 @@ def run(
         except Exception:
             pass  # si falla la evaluación, dejamos converged=False sin cambio
 
-    if root is None and rows:
-        root = rows[-1].xk_hat
+    # Paso 1 (coherencia): si NO convergió, root queda None (no la última iteración).
 
     return MethodResult(
         method_name="Steffensen",

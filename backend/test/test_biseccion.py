@@ -141,10 +141,10 @@ class TestBiseccionInaplicable:
         assert result.applicable is False
 
     def test_no_convergencia_max_iter_1(self, eq_base, params_no_convergencia):
-        """Con max_iter=1 no converge, pero root es la última aproximación (no None)."""
+        """Con max_iter=1 no converge → root queda None (coherencia front/back/Excel)."""
         result = run(eq_base, params_no_convergencia, a=0.0, b=1.0, max_iter=1)
         assert result.applicable is True
-        assert result.root is not None
+        assert (result.root is not None) == result.converged
 
     def test_iteration_count_cero_si_inaplicable(self, eq_base, params_sin_cambio_signo):
         """Si not applicable, iteration_count debe ser 0."""

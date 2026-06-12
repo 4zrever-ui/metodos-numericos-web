@@ -115,7 +115,7 @@ class TestNewtonRaphsonInaplicable:
         """Con max_iter=1 la mayoría de ecuaciones no convergen."""
         result = run(eq_base, params_no_convergencia, x0=1.0, max_iter=1)
         assert result.applicable is True
-        assert result.root is not None  # devuelve última aproximación aunque no converja
+        assert (result.root is not None) == result.converged  # coherencia: root sólo si convergió
 
     def test_ecuacion_sin_raices_reales(self, eq_discriminante_negativo, params_discriminante_negativo):
         """f(x)=x^2+x+1 sin raíces reales. f'(0)=1≠0 → aplicable pero no converge."""

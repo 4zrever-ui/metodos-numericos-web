@@ -177,7 +177,7 @@ def run(
             fp_latex=eq.fp_latex, fpp_latex=eq.fpp_latex,
             params_used=params_used, iterations=rows,
             root=None, final_error_pct=None, converged=False,
-            iteration_count=len(rows) - 1, excel_sheet_name=_SHEET_NAME,
+            iteration_count=max(0, len(rows) - 1), excel_sheet_name=_SHEET_NAME,
             formula_description="xₙ₊₁ = xₙ − f(xₙ)·(xₙ−xₙ₋₁) / (f(xₙ)−f(xₙ₋₁))",
         )
 
@@ -196,7 +196,7 @@ def run(
             fp_latex=eq.fp_latex, fpp_latex=eq.fpp_latex,
             params_used=params_used, iterations=rows,
             root=x2, final_error_pct=err1, converged=True,
-            iteration_count=len(rows) - 1, excel_sheet_name=_SHEET_NAME,
+            iteration_count=max(0, len(rows) - 1), excel_sheet_name=_SHEET_NAME,
             formula_description="xₙ₊₁ = xₙ − f(xₙ)·(xₙ−xₙ₋₁) / (f(xₙ)−f(xₙ₋₁))",
         )
 
@@ -228,9 +228,7 @@ def run(
         xk_prev, fxk_prev = xk, fxk
         xk = x_next
 
-    if root is None and rows:
-        last = rows[-1]
-        root = last.x_next if last.x_next is not None else last.xk
+    # Paso 1 (coherencia): si NO convergió, root queda None (no la última iteración).
 
     return MethodResult(
         method_name="Secante", applicable=True,
@@ -239,7 +237,7 @@ def run(
         fp_latex=eq.fp_latex, fpp_latex=eq.fpp_latex,
         params_used=params_used, iterations=rows,
         root=root, final_error_pct=final_error,
-        converged=converged, iteration_count=len(rows) - 1,
+        converged=converged, iteration_count=max(0, len(rows) - 1),
         excel_sheet_name=_SHEET_NAME,
         formula_description="xₙ₊₁ = xₙ − f(xₙ)·(xₙ−xₙ₋₁) / (f(xₙ)−f(xₙ₋₁))",
     )
