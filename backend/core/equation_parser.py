@@ -6,6 +6,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Optional
 
 import sympy as sp
@@ -37,6 +38,18 @@ class ParsedEquation:
     fp_latex: str
     fpp_latex: str
     x_symbol: sp.Symbol = field(default_factory=lambda: sp.Symbol("x"))
+    # Funciones numéricas compiladas (lambdify) — ~150x más rápidas que subs().evalf()
+    f_func: object = None
+    fp_func: object = None
+    fpp_func: object = None
+
+
+def _lambdify(expr: sp.Expr):
+    """Compila una expr SymPy a función Python rápida; None si no es posible."""
+    try:
+        return sp.lambdify(_x, expr, modules=["math"])
+    except Exception:
+        return None
 
 
 def _clean_input(raw: str) -> str:
@@ -97,6 +110,7 @@ def _sympy_to_excel(expr: sp.Expr, col: str = "{col}", row: str = "{row}") -> st
     return f"={result}"
 
 
+@lru_cache(maxsize=256)
 def parse_equation(raw: str) -> ParsedEquation:
     cleaned = _clean_input(raw)
 
@@ -129,6 +143,9 @@ def parse_equation(raw: str) -> ParsedEquation:
         f_latex=sp.latex(f_sympy),
         fp_latex=sp.latex(fp_sympy),
         fpp_latex=sp.latex(fpp_sympy),
+        f_func=_lambdify(f_sympy),
+        fp_func=_lambdify(fp_sympy),
+        fpp_func=_lambdify(fpp_sympy),
     )
 
 
@@ -154,16 +171,26 @@ def _safe_float(val) -> float:
     return result
 
 
+def _eval(fn, expr, x_val: float) -> float:
+    """Evalúa con la función compilada (rápida); si falta o falla, usa subs()."""
+    if fn is not None:
+        try:
+            return _safe_float(fn(x_val))
+        except (ArithmeticError, ValueError, TypeError):
+            return float("nan")
+    return _safe_float(expr.subs(_x, x_val).evalf())
+
+
 def eval_f(eq: ParsedEquation, x_val: float) -> float:
-    return _safe_float(eq.f_sympy.subs(_x, x_val).evalf())
+    return _eval(eq.f_func, eq.f_sympy, x_val)
 
 
 def eval_fp(eq: ParsedEquation, x_val: float) -> float:
-    return _safe_float(eq.fp_sympy.subs(_x, x_val).evalf())
+    return _eval(eq.fp_func, eq.fp_sympy, x_val)
 
 
 def eval_fpp(eq: ParsedEquation, x_val: float) -> float:
-    return _safe_float(eq.fpp_sympy.subs(_x, x_val).evalf())
+    return _eval(eq.fpp_func, eq.fpp_sympy, x_val)
 
 
 def excel_f(eq: ParsedEquation, col: str, row: int) -> str:

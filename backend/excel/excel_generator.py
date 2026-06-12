@@ -29,6 +29,7 @@ Sheet order matches amburger.xlsx:
 
 from __future__ import annotations
 import io
+from functools import lru_cache
 from typing import Any
 
 from openpyxl import Workbook
@@ -86,9 +87,8 @@ def _method_status(method_key: str, fx_str: str):
         return None
     try:
         from backend.core.equation_parser import parse_equation
-        from backend.core.auto_params import generate_params
         eq = parse_equation(fx_str)
-        params = generate_params(eq)
+        params = _cached_params(fx_str)
         res = runner(eq, params)
     except Exception:
         return None
@@ -100,6 +100,7 @@ def _method_status(method_key: str, fx_str: str):
     )
 
 
+@lru_cache(maxsize=256)
 def _has_real_roots(fx_str: str):
     """
     True / False / None(desconocido): ¿la ecuación tiene alguna raíz real?
@@ -168,6 +169,7 @@ ALL_METHODS: list[str] = [
 # Derivative helpers
 # ---------------------------------------------------------------------------
 
+@lru_cache(maxsize=256)
 def _compute_derivatives(fx_str: str) -> tuple[str, str]:
     """Return (fpx_expr_str, fppx_expr_str) as SymPy-parseable strings."""
     import sympy as sp
@@ -184,15 +186,19 @@ def _compute_derivatives(fx_str: str) -> tuple[str, str]:
 # (integrates with auto_params.py when available)
 # ---------------------------------------------------------------------------
 
+@lru_cache(maxsize=256)
+def _cached_params(fx_str: str):
+    """auto_params cacheado por ecuación: evita recalcular seeds 14× en /excel/all."""
+    from backend.core.equation_parser import parse_equation
+    from backend.core.auto_params import generate_params
+    return generate_params(parse_equation(fx_str))
+
+
 def _default_params(method_key: str, fx_str: str) -> dict[str, Any]:
     """
     Generate sensible default parameters using auto_params.
     """
-    from backend.core.equation_parser import parse_equation
-    from backend.core.auto_params import generate_params
-
-    eq = parse_equation(fx_str)
-    p  = generate_params(eq)
+    p = _cached_params(fx_str)
 
     interval_methods  = {"biseccion", "regula_falsi"}
     two_point_methods = {"secante"}

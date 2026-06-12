@@ -11,6 +11,7 @@ Responsibilities:
 """
 
 from __future__ import annotations
+from functools import lru_cache
 import sympy as sp
 from sympy import (
     Symbol, Pow, Mul, Add, Rational, Integer, Float, Number,
@@ -20,6 +21,18 @@ from sympy import (
 )
 
 x = Symbol("x")
+
+
+@lru_cache(maxsize=512)
+def _sympify_str(s: str) -> sp.Expr:
+    """sympify cacheado: evita re-parsear la misma ecuación en cada celda."""
+    return sp.sympify(s, locals={"x": x})
+
+
+@lru_cache(maxsize=512)
+def _diff_str(s: str, order: int) -> sp.Expr:
+    """Derivada n-ésima cacheada por (string, orden)."""
+    return sp.diff(_sympify_str(s), x, order)
 
 
 # ---------------------------------------------------------------------------
@@ -173,14 +186,14 @@ def to_excel_formula(sympy_expr: sp.Expr | str, cell_ref: str) -> str:
     str — Excel formula without leading "=", e.g. "B3^3-4*B3+1"
     """
     if isinstance(sympy_expr, str):
-        sympy_expr = sp.sympify(sympy_expr, locals={"x": x})
+        sympy_expr = _sympify_str(sympy_expr)
     return _expr_to_excel(sympy_expr, cell_ref)
 
 
 def get_derivative(sympy_expr: sp.Expr | str, order: int = 1) -> sp.Expr:
     """Return the nth derivative of the expression with respect to x."""
     if isinstance(sympy_expr, str):
-        sympy_expr = sp.sympify(sympy_expr, locals={"x": x})
+        return _diff_str(sympy_expr, order)
     return sp.diff(sympy_expr, x, order)
 
 
@@ -198,11 +211,12 @@ def evaluate_derivative_at(sympy_expr: sp.Expr | str, x_val: float, order: int =
     Used for constant terms (e.g. f''(x₀) hardcoded).
     """
     if isinstance(sympy_expr, str):
-        sympy_expr = sp.sympify(sympy_expr, locals={"x": x})
-    deriv = sp.diff(sympy_expr, x, order)
+        deriv = _diff_str(sympy_expr, order)
+    else:
+        deriv = sp.diff(sympy_expr, x, order)
     return float(deriv.subs(x, x_val))
 
 
 def expr_to_sympy(expr_str: str) -> sp.Expr:
     """Parse a string into a SymPy expression."""
-    return sp.sympify(expr_str, locals={"x": x})
+    return _sympify_str(expr_str)
