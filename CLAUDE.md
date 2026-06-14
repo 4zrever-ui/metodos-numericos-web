@@ -5,7 +5,7 @@
 > previas de CLAUDE.md). Si algo aquí contradice a otro .md viejo, manda éste.
 >
 > Claude Code lo lee automáticamente al abrir el proyecto.
-> Última actualización: 2026-06-13.
+> Última actualización: 2026-06-14.
 
 ---
 
@@ -20,7 +20,8 @@ referencia (`amburger.xlsx` = fuente de verdad para formato y lógica).
 - **Frontend:** React + Vite. Hoy todo el UI vive en `frontend/src/App.jsx`. Puerto 5173.
 - **Backend:** FastAPI + SymPy. Derivadas simbólicas (no diferencias finitas). Puerto 8000.
 - **Despliegue:** Frontend en Vercel; backend en Render (free tier → **hiberna**, primer request lento).
-- **Rama actual:** `fix/excel-audit-final`. Trabajo en commits locales (ver §7 sobre push).
+- **Rama actual:** `main`. Todo el trabajo de esta sesión está en commits **locales** (nada
+  pusheado). Render sirve una versión vieja hasta que se haga push (ver §7).
 
 ---
 
@@ -75,12 +76,28 @@ Otros: **von_mises**.
 - Steffensen: 6 `#DIV/0!` arreglados. Secante F3: IFERROR faltante.
 - **Rendimiento P2:** `/excel/all` de 57s → 3s (lambdify + cachés). Eliminó el "Failed to fetch".
 
-**Frontend (Bloque 1 de la sesión de asesoría — pendiente de integrar):**
-- `mathNotation.js` (NUEVO): normaliza `\sqrt[3]{}`, `^`, Unicode (π, √, x²) → notación Python.
-  Cubre la UX matemática pendiente. **Es lo más valioso a integrar; archivo independiente, no rompe nada.**
-- Del `App.jsx`/`App.css` de esa sesión, integrar SOLO por piezas (NO reemplazar el actual,
-  que ya tiene MethodNotice y paneles de diagnóstico): canvas adaptable claro/oscuro y
-  vista previa "Interpretado como…". El resto probablemente ya existe o entra en conflicto.
+**Frontend (integrado en esta sesión — 2026-06-14):**
+- **`mathNotation.js` integrado** (commit `66e8032`): normaliza la notación de entrada
+  (LaTeX `\sqrt[3]{}`, Unicode π/√/x², `^`→`**`) en TODOS los puntos de envío
+  (`/method/*`, `/excel/*`, `/params`) + vista previa "Interpretado como…" bajo
+  ecuación y g(x) + `fetchWithWake()` (cold-start de Render con retry/banner).
+- **Teoría viva con KaTeX** (commit `9c25a5c`): f(x), f'(x), f''(x) renderizados con
+  KaTeX en el **flujo individual** (usa `f_latex`/`fp_latex`/`fpp_latex` que ya envía
+  `/method/*`). La recurrencia (`formula_description`) se muestra como texto plano.
+  Deuda técnica anotada (§7): lazy-load de KaTeX (~260 kB).
+- **Coherencia verificada B/C/D** (3 capas tabla/backend/Excel, contra backend LOCAL):
+  x²−4x+5 y tan(x)−x → **cero raíces basura**; x³−2x−5 → raíz 2.0946 consistente en
+  las 3 capas. (La verificación EN NAVEGADOR quedó bloqueada: el frontend apunta a
+  Render, que tiene la versión vieja; hay que pushear estos commits para verla en vivo.)
+- Docs reorganizados (commit `5d388fd`): este CLAUDE.md es la fuente única; los .md
+  viejos están en `_historico/`.
+
+**Frontend — SIN integrar (decisión explícita, dejado para después):**
+- Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
+  pero con fondo oscuro hardcodeado.
+- Aviso de "raíz exacta" (cuando x₀ ya es la raíz, iters=0).
+- Barra de símbolos rápidos (π, √, x², ÷, ×) — el normalizador ya cubre la notación,
+  faltan los botones.
 
 ---
 
@@ -99,23 +116,30 @@ Otros: **von_mises**.
 
 ## 7. Hoja de ruta (orden acordado con el director)
 
-**Corrección (terminar lo empezado):**
-1. Verificación en navegador de casos B (x²−4x+5), C (tan x−x), D (x³−2x−5). Estábamos en B.
-2. Taxonomía de errores: NO_REAL_ROOTS, MAX_ITER, DIVERGENCE, DIVISION_BY_ZERO,
-   DERIVATIVE_ZERO, COMPLEX, DOMAIN, SINGULARITY → que tras "no convergió" el usuario sepa POR QUÉ.
-3. Mensajes consistentes front/back/Excel.
+**Ya hecho (ver §5):** ✅ Ostrowsky P1 · ✅ coherencia root=None · ✅ rendimiento Excel P2
+· ✅ normalizador `mathNotation.js` + cold-start (`66e8032`) · ✅ teoría viva KaTeX (`9c25a5c`)
+· ✅ coherencia B/C/D verificada (3 capas, programática) · ✅ docs reorganizados (`5d388fd`).
 
-**Experiencia y salto académico:**
-4. Integrar `mathNotation.js` + UX matemática (botones π, √, x², conversión `^`→`**`).
-5. Gráfico interactivo de la función (canvas adaptable claro/oscuro).
+**Pendiente — corrección/coherencia:**
+1. Taxonomía de errores: NO_REAL_ROOTS, MAX_ITER, DIVERGENCE, DIVISION_BY_ZERO,
+   DERIVATIVE_ZERO, COMPLEX, DOMAIN, SINGULARITY → que tras "no convergió" el usuario sepa POR QUÉ.
+2. Mensajes consistentes front/back/Excel.
+3. Verificación EN NAVEGADOR de la coherencia — bloqueada hasta pushear a Render
+   (el frontend apunta a Render con versión vieja). La verificación programática contra local ya pasó.
+
+**Pendiente — experiencia y salto académico:**
+4. UX matemática restante: barra de símbolos rápidos (π, √, x², ÷, ×). El normalizador ya está integrado.
+5. Canvas del gráfico adaptable claro/oscuro (el gráfico ya existe; hoy fondo oscuro hardcodeado)
+   + aviso de raíz exacta (x₀ ya es la raíz, iters=0).
 6. Estructura de navegación (react-router) — hoy todo es una página; necesario para que
    teoría / Excel / práctica tengan dónde vivir.
 7. Identidad académica: landing, encabezado institucional, `<title>` correcto (hoy "frontend").
-8. **Teoría viva con KaTeX** — el backend YA genera `f_latex`, `fp_latex`, `fpp_latex`; falta renderizarlos.
-9. **Constructor de Excel paso a paso** — el diferenciador único del proyecto.
-10. Corregir Newton 2do orden (ambas ramas del discriminante).
+8. **Constructor de Excel paso a paso** — el diferenciador único del proyecto.
+9. Corregir Newton 2do orden (ambas ramas del discriminante).
+10. Reconciliar Ostrowsky con la fórmula estándar de 2 pasos (hoy usa la variante `copysign`,
+    que funciona; reconciliación diferida — acordado con el director).
 11. Modo práctica / examen.
-12. Push / PR (nada subido aún).
+12. Push / PR (nada subido aún — todo local en `main`).
 
 **Fuera de alcance explícito:** hoja Resumen (C4).
 
