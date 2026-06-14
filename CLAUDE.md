@@ -5,7 +5,7 @@
 > previas de CLAUDE.md). Si algo aquí contradice a otro .md viejo, manda éste.
 >
 > Claude Code lo lee automáticamente al abrir el proyecto.
-> Última actualización: 2026-06-14.
+> Última actualización: 2026-06-14 (push a origin/main + verificación en navegador en vivo).
 
 ---
 
@@ -118,14 +118,19 @@ Otros: **von_mises**.
 
 **Ya hecho (ver §5):** ✅ Ostrowsky P1 · ✅ coherencia root=None · ✅ rendimiento Excel P2
 · ✅ normalizador `mathNotation.js` + cold-start (`66e8032`) · ✅ teoría viva KaTeX (`9c25a5c`)
-· ✅ coherencia B/C/D verificada (3 capas, programática) · ✅ docs reorganizados (`5d388fd`).
+· ✅ coherencia B/C/D verificada (3 capas, programática) · ✅ docs reorganizados (`5d388fd`)
+· ✅ `.gitignore` blindado para carpetas de trabajo (`bba1f30`)
+· ✅ **push a origin/main** (los 5 commits subidos; Vercel desplegó el build nuevo; Render compatible)
+· ✅ **verificación EN NAVEGADOR en vivo** (https://metodos-numericos-web.vercel.app):
+  normalización `^`→`**` con vista previa, teoría viva KaTeX (f/f'/f''), raíz x³−2x−5 = 2.0946
+  consistente en las 3 capas, y x²−4x+5 → panel "no aplica" sin raíz basura.
 
 **Pendiente — corrección/coherencia:**
 1. Taxonomía de errores: NO_REAL_ROOTS, MAX_ITER, DIVERGENCE, DIVISION_BY_ZERO,
    DERIVATIVE_ZERO, COMPLEX, DOMAIN, SINGULARITY → que tras "no convergió" el usuario sepa POR QUÉ.
 2. Mensajes consistentes front/back/Excel.
-3. Verificación EN NAVEGADOR de la coherencia — bloqueada hasta pushear a Render
-   (el frontend apunta a Render con versión vieja). La verificación programática contra local ya pasó.
+3. ✅ HECHO — Verificación EN NAVEGADOR de la coherencia (2026-06-14, contra el sitio en vivo
+   tras el push). Pasó: normalización, teoría viva KaTeX y coherencia (raíz correcta / sin basura).
 
 **Pendiente — experiencia y salto académico:**
 4. UX matemática restante: barra de símbolos rápidos (π, √, x², ÷, ×). El normalizador ya está integrado.
@@ -139,7 +144,8 @@ Otros: **von_mises**.
 10. Reconciliar Ostrowsky con la fórmula estándar de 2 pasos (hoy usa la variante `copysign`,
     que funciona; reconciliación diferida — acordado con el director).
 11. Modo práctica / examen.
-12. Push / PR (nada subido aún — todo local en `main`).
+12. ✅ HECHO — Push de los 5 commits a `origin/main` (2026-06-14). Vercel desplegó el build
+    nuevo; backend de Render compatible y verificado en vivo. (PR no aplica: trabajo directo en `main`.)
 
 **Fuera de alcance explícito:** hoja Resumen (C4).
 
