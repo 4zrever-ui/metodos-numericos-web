@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "./App.css";
+import { normalizeMathInput, normalizationPreview } from "./mathNotation";
 
 const API = "https://metodos-numericos-web.onrender.com";
 
@@ -56,6 +57,34 @@ function formatValue(val) {
   }
   if (typeof val === "object") return JSON.stringify(val);
   return String(val);
+}
+
+// ── Fetch con reintento para el "cold start" de Render (free tier) ────────────
+// Render hiberna el backend tras inactividad. El primer request puede tardar
+// 30–60 s o devolver 502/503 mientras el servidor despierta. Esta función
+// reintenta con backoff y llama onWaking() para que la UI avise al usuario.
+async function fetchWithWake(url, options, { onWaking, retries = 4 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if ([502, 503, 504].includes(res.status) && attempt < retries) {
+        if (attempt === 0 && onWaking) onWaking();
+        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) {
+        if (attempt === 0 && onWaking) onWaking();
+        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  throw lastErr || new Error("No se pudo conectar con el servidor.");
 }
 
 // ── Descarga de Excel ─────────────────────────────────────────────────────────
@@ -178,9 +207,11 @@ function ComparisonTable({ results, equation, manualParams = {} }) {
   const handleExcelSingle = async (methodKey) => {
     setDownloading(methodKey);
     try {
+      const cleanParams = { ...manualParams };
+      if (cleanParams.gx) cleanParams.gx = normalizeMathInput(cleanParams.gx);
       await descargarBlob(
         "/excel/single",
-        { equation, method_key: methodKey, ...manualParams },
+        { equation, method_key: methodKey, ...cleanParams },
         `metodos_numericos_${methodKey}.xlsx`
       );
     } catch (e) {
@@ -642,6 +673,7 @@ export default function App() {
   const [error, setError]               = useState(null);
   const [notice, setNotice]             = useState(null);
   const [loading, setLoading]           = useState(false);
+  const [waking, setWaking]             = useState(false); // banner cold-start de Render
 
   // Parámetros automáticos calculados por el backend (para mostrar como placeholder)
   const [autoParams, setAutoParams]     = useState({});
@@ -652,11 +684,12 @@ export default function App() {
   // Pide al backend los parámetros auto cada vez que cambia la ecuación
   const fetchAutoParams = async (eq) => {
     if (!eq.trim()) { setAutoParams({}); return; }
+    const normEq = normalizeMathInput(eq);
     try {
       const res = await fetch(`${API}/params`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equation: eq.trim() }),
+        body: JSON.stringify({ equation: normEq }),
       });
       if (!res.ok) return;
       const data = await res.json();
@@ -699,23 +732,25 @@ export default function App() {
     setNotice(null);
     setResult(null);
     setLoading(true);
+    setWaking(false);
     try {
       const { url } = METHODS[method];
-      const body = { equation: equation.trim() };
+      const normEq = normalizeMathInput(equation);
+      const body = { equation: normEq };
       for (const key of currentParamKeys) {
         if (key === "gx") {
           const s = (manualParams[key] ?? "").trim();
-          if (s) body[key] = s;
+          if (s) body[key] = normalizeMathInput(s);
         } else {
           const val = numOrNull(manualParams[key]);
           if (val !== null) body[key] = val;
         }
       }
-      const res = await fetch(`${API}${url}`, {
+      const res = await fetchWithWake(`${API}${url}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      });
+      }, { onWaking: () => setWaking(true) });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(
@@ -726,7 +761,7 @@ export default function App() {
       if (!data || typeof data !== "object") throw new Error("Respuesta inválida del backend.");
       const applicable = data.applicable !== false;
       if (!applicable || !data.converged) {
-        const diag = await fetchDiagnose(equation.trim(), method, applicable);
+        const diag = await fetchDiagnose(normEq, method, applicable);
         setNotice(diag);
         setResult(applicable ? data : null); // si no aplica, no hay tabla útil
         return;
@@ -757,6 +792,7 @@ export default function App() {
       );
     } finally {
       setLoading(false);
+      setWaking(false);
     }
   };
 
@@ -770,12 +806,14 @@ export default function App() {
     setAllNotice(null);
     setAllResults(null);
     setLoadingAll(true);
+    setWaking(false);
     try {
-      const res = await fetch(`${API}/method/all`, {
+      const normEq = normalizeMathInput(equation);
+      const res = await fetchWithWake(`${API}/method/all`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equation: equation.trim() }),
-      });
+        body: JSON.stringify({ equation: normEq }),
+      }, { onWaking: () => setWaking(true) });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(
@@ -786,7 +824,7 @@ export default function App() {
       setAllResults(data.results);
       const algunoConverge = (data.results || []).some((r) => r.converged);
       if (!algunoConverge) {
-        const diag = await fetchDiagnose(equation.trim(), "", true);
+        const diag = await fetchDiagnose(normEq, "", true);
         setAllNotice(diag.has_real_roots === false ? diag : null);
       }
     } catch (e) {
@@ -797,6 +835,7 @@ export default function App() {
       );
     } finally {
       setLoadingAll(false);
+      setWaking(false);
     }
   };
 
@@ -805,9 +844,12 @@ export default function App() {
     if (!equation.trim()) return;
     setDownloadingAll(true);
     try {
+      const normEq = normalizeMathInput(equation);
+      const cleanParams = { ...manualParams };
+      if (cleanParams.gx) cleanParams.gx = normalizeMathInput(cleanParams.gx);
       await descargarBlob(
         "/excel/all",
-        { equation: equation.trim(), ...manualParams },
+        { equation: normEq, ...cleanParams },
         "metodos_numericos_todos.xlsx"
       );
     } catch (e) {
@@ -824,6 +866,18 @@ export default function App() {
         <p className="subtitle">Resolución de ecuaciones no lineales</p>
       </header>
 
+      {/* ── Banner cold-start de Render ── */}
+      {waking && (
+        <div className="waking-banner">
+          <span className="waking-spinner" aria-hidden="true" />
+          <div>
+            <strong>El servidor está iniciando…</strong> La primera consulta tras un
+            periodo de inactividad puede tardar hasta un minuto. Las siguientes serán
+            inmediatas.
+          </div>
+        </div>
+      )}
+
       {/* ── Bloque 1: Formulario principal ── */}
       <section className="form-section">
         <div className="form-group form-group--equation">
@@ -838,6 +892,12 @@ export default function App() {
             spellCheck={false}
             autoComplete="off"
           />
+          {normalizationPreview(equation) && (
+            <div className="notation-preview">
+              <span className="notation-preview-label">Interpretado como</span>
+              <code>{normalizationPreview(equation)}</code>
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -885,7 +945,7 @@ export default function App() {
       {/* ── Gráfico de f(x) ── */}
       {equation.trim() && (
         <section style={{ padding: "0 0 0 0" }}>
-          <FunctionGraph equation={equation.trim()} roots={graphRoots} />
+          <FunctionGraph equation={normalizeMathInput(equation)} roots={graphRoots} />
         </section>
       )}
 
@@ -919,6 +979,12 @@ export default function App() {
                   spellCheck={false}
                   autoComplete="off"
                 />
+                {key === "gx" && normalizationPreview(manualParams[key]) && (
+                  <div className="notation-preview">
+                    <span className="notation-preview-label">Interpretado como</span>
+                    <code>{normalizationPreview(manualParams[key])}</code>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -950,9 +1016,11 @@ export default function App() {
                   const mk = method === "newton" ? "newton_raphson"
                            : method === "newton_segundo_orden" ? "newton_2do_orden"
                            : method;
+                  const cleanParams = { ...manualParams };
+                  if (cleanParams.gx) cleanParams.gx = normalizeMathInput(cleanParams.gx);
                   await descargarBlob(
                     "/excel/single",
-                    { equation: equation.trim(), method_key: mk, ...manualParams },
+                    { equation: normalizeMathInput(equation), method_key: mk, ...cleanParams },
                     `metodos_numericos_${mk}.xlsx`
                   );
                 } catch (e) { alert(e.message); }
@@ -986,7 +1054,7 @@ export default function App() {
             </button>
           </div>
           {allNotice && <MethodNotice notice={allNotice} />}
-          <ComparisonTable results={allResults} equation={equation.trim()} manualParams={manualParams} />
+          <ComparisonTable results={allResults} equation={normalizeMathInput(equation)} manualParams={manualParams} />
         </section>
       )}
     </div>
