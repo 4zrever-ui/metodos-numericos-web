@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import "./App.css";
 import { normalizeMathInput, normalizationPreview } from "./mathNotation";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 const API = "https://metodos-numericos-web.onrender.com";
 
@@ -662,6 +664,56 @@ const btnStyle = {
   borderRadius: "6px", padding: "4px 10px", cursor: "pointer", fontSize: "12px",
 };
 
+// ── Render de una expresión LaTeX con KaTeX ──────────────────────────────────
+function Katex({ tex, display = false }) {
+  let html;
+  try {
+    html = katex.renderToString(tex || "", { throwOnError: false, displayMode: display });
+  } catch {
+    html = tex || "";
+  }
+  return <span className="katex-wrap" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+// ── Teoría viva: f(x), f'(x), f''(x) (LaTeX) + fórmula de recurrencia ─────────
+// Usa los campos f_latex / fp_latex / fpp_latex / formula_description que ya
+// llegan en la respuesta de /method/*. Solo flujo individual. Cero backend.
+function Teoria({ result }) {
+  if (!result) return null;
+  const { f_latex, fp_latex, fpp_latex, formula_description } = result;
+  return (
+    <section className="teoria-section">
+      <h2>Teoría — la función y sus derivadas</h2>
+      <div className="teoria-grid">
+        {f_latex && (
+          <div className="teoria-row">
+            <span className="teoria-label">f(x)</span>
+            <Katex tex={f_latex} display />
+          </div>
+        )}
+        {fp_latex && (
+          <div className="teoria-row">
+            <span className="teoria-label">f′(x)</span>
+            <Katex tex={fp_latex} display />
+          </div>
+        )}
+        {fpp_latex && (
+          <div className="teoria-row">
+            <span className="teoria-label">f″(x)</span>
+            <Katex tex={fpp_latex} display />
+          </div>
+        )}
+      </div>
+      {formula_description && (
+        <div className="teoria-formula">
+          <span className="teoria-label">Fórmula de iteración</span>
+          <code>{formula_description}</code>
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ── App principal ─────────────────────────────────────────────────────────────
 export default function App() {
   // Estado del flujo individual (sin cambios)
@@ -1003,6 +1055,9 @@ export default function App() {
 
       {/* ── Bloque 4: Resumen flujo individual ── */}
       {result && <Summary result={result} methodLabel={METHODS[method].label} />}
+
+      {/* ── Bloque 4b: Teoría viva (KaTeX) — solo flujo individual ── */}
+      {result && <Teoria result={result} />}
 
       {/* ── Bloque 5: Tabla de iteraciones flujo individual ── */}
       {result?.iterations?.length > 0 && (

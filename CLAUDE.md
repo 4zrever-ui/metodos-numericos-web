@@ -119,6 +119,10 @@ Otros: **von_mises**.
 
 **Fuera de alcance explícito:** hoja Resumen (C4).
 
+**Deuda técnica:**
+- Optimización futura: cargar KaTeX de forma diferida (lazy load) para recuperar el
+  peso inicial del bundle (~260 kB extra). No urgente.
+
 ---
 
 ## 8. Comandos

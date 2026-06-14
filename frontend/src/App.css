@@ -533,3 +533,54 @@ tr.row-converged td { color: #15803d; font-weight: 600; }
 @keyframes waking-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Teoría viva (KaTeX) ──────────────────────────────────────────── */
+.teoria-section { margin-bottom: 2rem; }
+
+.teoria-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.teoria-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+}
+
+.teoria-label {
+  color: var(--text);
+  opacity: 0.75;
+  font-size: 0.85rem;
+  min-width: 3.2rem;
+  font-family: var(--mono);
+}
+
+.katex-wrap {
+  font-size: 1.15rem;
+  color: var(--text-h);
+}
+
+.teoria-formula {
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.teoria-formula code {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+}
