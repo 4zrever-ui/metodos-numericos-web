@@ -125,6 +125,24 @@ Otros: **von_mises**.
   normalización `^`→`**` con vista previa, teoría viva KaTeX (f/f'/f''), raíz x³−2x−5 = 2.0946
   consistente en las 3 capas, y x²−4x+5 → panel "no aplica" sin raíz basura.
 
+**Bugs del gráfico y estado (diagnóstico 2026-06-14):**
+Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuaciones representativas.
+- **G1 — el gráfico NO auto-encuadra. PRIORIDAD ALTA.** La ventana x queda fija (~[0,13]) y no se
+  adapta a la función ni a la raíz → la curva queda fuera de la vista en **11 de 14 casos** (solo se
+  ve cuando pasa por la banda visible: x²−4, 1/x, x² unicode). El backend SÍ calcula; no se muestra.
+- **G2 — marcador fantasma x≈0** en ecuaciones sin raíz real (p. ej. x²+1) y en estado frío.
+- **G3 — resultados rancios. PRIORIDAD ALTA.** Al cambiar de ecuación NO se limpia el estado:
+  la tarjeta RAÍZ/ITER/CONVERGIÓ y los marcadores arrastran los de la ecuación anterior
+  (ej.: raíz=1 de `cbrt(x)-1` apareció en 3 ecuaciones siguientes; `cos(x)-x` mostró marcadores de `sin(x)-0.5`).
+- **G4 — banner de cold-start "sticky":** no desaparece tras responder el backend.
+- **G5 — cold-start de Render contamina la experiencia:** "No se pudo conectar con el backend" y
+  requests colgadas en "Calculando…"; el retry/wake no aguanta hasta que Render despierta. Mitigable con keep-alive.
+
+**Conclusión clave del diagnóstico:** el normalizador/parseo funciona bien (`^`→`**`, unicode `x²`,
+LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`). El problema real es el
+**encuadre del gráfico (G1)** y la **gestión de estado (G3)**, NO la escritura de ecuaciones.
+(Nota de método: la prueba inyectó ecuaciones por form_input, no tecleo real — reconfirmar G1 tecleando a mano.)
+
 **Pendiente — corrección/coherencia:**
 1. Taxonomía de errores: NO_REAL_ROOTS, MAX_ITER, DIVERGENCE, DIVISION_BY_ZERO,
    DERIVATIVE_ZERO, COMPLEX, DOMAIN, SINGULARITY → que tras "no convergió" el usuario sepa POR QUÉ.
