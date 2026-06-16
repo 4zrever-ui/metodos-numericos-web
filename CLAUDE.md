@@ -131,16 +131,23 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
   adapta a la función ni a la raíz → la curva queda fuera de la vista en **11 de 14 casos** (solo se
   ve cuando pasa por la banda visible: x²−4, 1/x, x² unicode). El backend SÍ calcula; no se muestra.
 - **G2 — marcador fantasma x≈0** en ecuaciones sin raíz real (p. ej. x²+1) y en estado frío.
-- **G3 — resultados rancios. PRIORIDAD ALTA.** Al cambiar de ecuación NO se limpia el estado:
-  la tarjeta RAÍZ/ITER/CONVERGIÓ y los marcadores arrastran los de la ecuación anterior
-  (ej.: raíz=1 de `cbrt(x)-1` apareció en 3 ecuaciones siguientes; `cos(x)-x` mostró marcadores de `sin(x)-0.5`).
+  **Origen identificado (2026-06-14): es del BACKEND, no del gráfico.** `/params` para `x**2+1`
+  devuelve `roots:[0]` (con `has_real_roots:null`); el front lo dibuja fielmente. El arreglo va en
+  `core/auto_params.py` (no devolver raíz cuando no hay raíz real), no en `App.jsx`.
+- **G3 — resultados rancios. ✅ HECHO (2026-06-14, commit `7b72303`).** Causa raíz: el `onChange`
+  de la ecuación ([App.jsx:941]) mutaba `equation` pero no invalidaba `result`/`notice`/`graphRoots`.
+  Arreglo: nuevo `handleEquationChange` que limpia `result`/`notice`/`error`/`graphRoots` al cambiar de
+  ecuación + `fetchAutoParams` asienta siempre `data.roots || []`. Se conservó el append (multi-raíz de
+  una misma ecuación intacto). Verificado en navegador: al cambiar de ecuación la tarjeta/teoría/marcadores
+  se limpian al instante y no arrastran la raíz anterior. (Antes: raíz=1 de `cbrt(x)-1` se filtraba a 3
+  ecuaciones siguientes; `cos(x)-x` mostraba marcadores de `sin(x)-0.5`.)
 - **G4 — banner de cold-start "sticky":** no desaparece tras responder el backend.
 - **G5 — cold-start de Render contamina la experiencia:** "No se pudo conectar con el backend" y
   requests colgadas en "Calculando…"; el retry/wake no aguanta hasta que Render despierta. Mitigable con keep-alive.
 
 **Conclusión clave del diagnóstico:** el normalizador/parseo funciona bien (`^`→`**`, unicode `x²`,
 LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`). El problema real es el
-**encuadre del gráfico (G1)** y la **gestión de estado (G3)**, NO la escritura de ecuaciones.
+**encuadre del gráfico (G1)** y la **gestión de estado (G3 ✅ ya corregido)**, NO la escritura de ecuaciones.
 (Nota de método: la prueba inyectó ecuaciones por form_input, no tecleo real — reconfirmar G1 tecleando a mano.)
 
 **Pendiente — corrección/coherencia:**
