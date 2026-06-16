@@ -53,7 +53,7 @@ Otros: **von_mises**.
 
 ## 4. Estado matemático (VERIFICADO — corregido respecto a notas viejas)
 
-- ✅ **147/147 tests pasando.**
+- ✅ **149/149 tests pasando.** (+2 de capa endpoint para G6, 2026-06-14.)
 - ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Secante, Aitken: correctos.
 - ✅ **Ostrowsky: YA CORREGIDO** (bug P1: perdía el signo de f' y divergía con x0<0).
   Fórmula final: `x − f·signo(f')/√(...)`, coherente en backend y Excel.
@@ -144,15 +144,16 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
 - **G4 — banner de cold-start "sticky":** no desaparece tras responder el backend.
 - **G5 — cold-start de Render contamina la experiencia:** "No se pudo conectar con el backend" y
   requests colgadas en "Calculando…"; el retry/wake no aguanta hasta que Render despierta. Mitigable con keep-alive.
-- **G6 — parámetros manuales incoherentes (3 comportamientos distintos). PRIORIDAD ALTA.** Lo que sabe
-  del frontend (2026-06-14): los `manualParams` (g(x), [a,b], x₀) se tratan de 3 formas:
-  · "Resolver" individual SÍ los usa ([App.jsx:792-799]) ·
-  · "Resolver todos" en pantalla los IGNORA: solo envía `{equation}` a `/method/all` ([App.jsx:878]) ·
-  · "Descargar Excel todos" SÍ los reenvía (incluido `gx`) a `/excel/all` para todos los métodos ([App.jsx:911-916]).
-  **Lo más grave: incoherencia pantalla↔Excel** — la misma entrada puede dar una tabla en pantalla y un
-  Excel descargado con resultados distintos. Además "Resolver todos" ignora los manuales **en silencio**.
-  Pendiente leer backend: qué hace `/excel/all` con un `gx` manual en métodos que no lo usan (Bisección,
-  Newton) y si `/method/all` acepta params por diseño. Decidir cómo unificar (las 3 rutas con el mismo criterio).
+- **G6 — parámetros manuales incoherentes. ✅ HECHO (2026-06-14, commit `b3bf82a`).** Antes, los
+  `manualParams` (g(x), [a,b], x₀) se trataban de 3 formas: individual los usaba, "Resolver todos" en
+  pantalla los ignoraba (solo enviaba `{equation}` a `/method/all`), y "Excel todos" sí los aplicaba →
+  **incoherencia pantalla↔Excel** (misma entrada, resultados distintos en tabla vs Excel descargado).
+  Reconocimiento backend: `/excel/all` ya era method-aware vía `_excel_params` (descarta lo irrelevante,
+  el `gx` solo va a punto_fijo/aitken/steffensen); `/method/all` ya leía numéricos por runner pero no el `gx`.
+  Arreglo (Opción B — unificar hacia el patrón Excel, reutilizando lógica existente): el frontend envía
+  `manualParams` a `/method/all` ([App.jsx resolverTodos]); el backend inyecta el `gx` manual con el helper
+  existente `_parse_gx` antes del loop de `method_all` (solo lo consumen los 3 g-methods). +2 tests de capa
+  endpoint con contraste (gx convergente/divergente; intervalo bracketea/no). 149/149 pasando.
 
 **Conclusión clave del diagnóstico:** el normalizador/parseo funciona bien (`^`→`**`, unicode `x²`,
 LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`). El problema real es el
@@ -197,9 +198,9 @@ cd frontend && npm install && npm run dev      # desarrollo
 cd frontend && npm run build                   # validar build
 cd frontend && npx eslint src/App.jsx          # linter
 
-# Backend
-cd backend && uvicorn main:app --reload        # servidor
-cd backend && pytest                           # 147 tests
+# Backend (los imports son `from backend.X` → correr DESDE LA RAÍZ del repo, no desde backend/)
+uvicorn backend.main:app --reload              # servidor (desde la raíz)
+python -m pytest backend/test                  # 149 tests (desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError)
 ```
 
 **Dependencias de entorno (solo dev, no en el repo):** fastapi, uvicorn, pytest, formulas, scipy.
