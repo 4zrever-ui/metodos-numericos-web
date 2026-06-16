@@ -342,6 +342,12 @@ def method_all(data: dict):
     eq = parse_equation(equation)
     params = generate_params(eq)
 
+    # G6: respetar g(x) manual en "Resolver todos", igual que el endpoint
+    # individual. Solo punto_fijo/aitken/steffensen lo consumen; el resto lo ignora.
+    gx_manual = _parse_gx(data)
+    if gx_manual is not None:
+        params.gx_sympy = gx_manual
+
     results = []
     for method_key, runner in ALL_METHOD_RUNNERS:
         try:

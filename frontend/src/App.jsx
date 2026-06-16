@@ -872,10 +872,21 @@ export default function App() {
     setWaking(false);
     try {
       const normEq = normalizeMathInput(equation);
+      // G6: enviar parámetros manuales; el backend los aplica method-aware
+      const cleanParams = {};
+      for (const [k, v] of Object.entries(manualParams)) {
+        if (k === "gx") {
+          const s = (v ?? "").trim();
+          if (s) cleanParams.gx = normalizeMathInput(s);
+        } else {
+          const n = numOrNull(v);
+          if (n !== null) cleanParams[k] = n;
+        }
+      }
       const res = await fetchWithWake(`${API}/method/all`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equation: normEq }),
+        body: JSON.stringify({ equation: normEq, ...cleanParams }),
       }, { onWaking: () => setWaking(true) });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
