@@ -747,7 +747,7 @@ export default function App() {
       const data = await res.json();
       if (!data.error) {
         setAutoParams(data);
-        if (data.roots) setGraphRoots(data.roots);
+        setGraphRoots(data.roots || []);
       }
     } catch { /* silencioso */ }
   };
@@ -767,6 +767,17 @@ export default function App() {
     setResult(null);
     setError(null);
     setNotice(null);
+  };
+
+  const handleEquationChange = (e) => {
+    const value = e.target.value;
+    setEquation(value);
+    // G3: al cambiar la ecuación, invalidar el resultado y los marcadores anteriores
+    setResult(null);
+    setNotice(null);
+    setError(null);
+    setGraphRoots([]);
+    fetchAutoParams(value);
   };
 
   const handleParamChange = (key, val) => {
@@ -938,7 +949,7 @@ export default function App() {
             id="equation"
             type="text"
             value={equation}
-            onChange={(e) => { setEquation(e.target.value); fetchAutoParams(e.target.value); }}
+            onChange={handleEquationChange}
             onKeyDown={(e) => e.key === "Enter" && resolver()}
             placeholder="ej. x^3 - 2*x - 5"
             spellCheck={false}
