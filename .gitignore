@@ -28,3 +28,6 @@ Thumbs.db
 CAMBIOS/
 files/
 validacion_c1/
+
+# Config local de Claude Code / preview (no va al repo)
+.claude/
