@@ -144,6 +144,15 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
 - **G4 — banner de cold-start "sticky":** no desaparece tras responder el backend.
 - **G5 — cold-start de Render contamina la experiencia:** "No se pudo conectar con el backend" y
   requests colgadas en "Calculando…"; el retry/wake no aguanta hasta que Render despierta. Mitigable con keep-alive.
+- **G6 — parámetros manuales incoherentes (3 comportamientos distintos). PRIORIDAD ALTA.** Lo que sabe
+  del frontend (2026-06-14): los `manualParams` (g(x), [a,b], x₀) se tratan de 3 formas:
+  · "Resolver" individual SÍ los usa ([App.jsx:792-799]) ·
+  · "Resolver todos" en pantalla los IGNORA: solo envía `{equation}` a `/method/all` ([App.jsx:878]) ·
+  · "Descargar Excel todos" SÍ los reenvía (incluido `gx`) a `/excel/all` para todos los métodos ([App.jsx:911-916]).
+  **Lo más grave: incoherencia pantalla↔Excel** — la misma entrada puede dar una tabla en pantalla y un
+  Excel descargado con resultados distintos. Además "Resolver todos" ignora los manuales **en silencio**.
+  Pendiente leer backend: qué hace `/excel/all` con un `gx` manual en métodos que no lo usan (Bisección,
+  Newton) y si `/method/all` acepta params por diseño. Decidir cómo unificar (las 3 rutas con el mismo criterio).
 
 **Conclusión clave del diagnóstico:** el normalizador/parseo funciona bien (`^`→`**`, unicode `x²`,
 LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`). El problema real es el
