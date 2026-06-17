@@ -304,7 +304,7 @@ function FunctionGraph({ equation, roots = [] }) {
       let expr = equation
         .replace(/\*\*/g, "^POW^")   // mark ** first
         .replace(/\^POW\^/g, "**")    // restore as JS **
-        .replace(/([0-9a-zA-Z_)])(\s*)(\()/g, "$1*$3")  // implicit mult: 2(x) → 2*(x)
+        .replace(/([0-9)])(\s*)(\()/g, "$1*$3")  // implicit mult: 2(x) → 2*(x); NO tras letra (rompía sin( cos( tan( …)
         .replace(/\bsin\b/g, "Math.sin")
         .replace(/\bcos\b/g, "Math.cos")
         .replace(/\btan\b/g, "Math.tan")
