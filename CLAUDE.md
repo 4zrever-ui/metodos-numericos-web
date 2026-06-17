@@ -154,6 +154,15 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
   `manualParams` a `/method/all` ([App.jsx resolverTodos]); el backend inyecta el `gx` manual con el helper
   existente `_parse_gx` antes del loop de `method_all` (solo lo consumen los 3 g-methods). +2 tests de capa
   endpoint con contraste (gx convergente/divergente; intervalo bracketea/no). 149/149 pasando.
+- **G7 — `/excel/all` reporta "no tiene raíces reales" para ecuaciones que SÍ las tienen. EN COLA.**
+  Descubierto al verificar G6 en vivo (2026-06-14). `x³−4x+1` (3 raíces reales: −2.11, 0.25, 1.86) genera
+  paneles **"Esta ecuación no tiene raíces reales"** falsos en las **14 hojas** del Excel. Específico:
+  `x³−2x−5` y `x²−4` salen bien. La **pantalla** (`/method/all`) resuelve bien la misma ecuación → es
+  **incoherencia pantalla↔Excel** (la pantalla resuelve, el Excel dice "sin raíces"). `/params` devuelve
+  las 3 raíces correctas pero con `has_real_roots: None`. Causa probable: la detección `_has_real_roots`
+  del generador de Excel (`excel/excel_generator.py`) falla para esa clase de ecuación.
+  **Pre-existente, NO introducido por G6** (ocurre con y sin gx; mi fix tocó el camino de pantalla, no la
+  detección del Excel). Probablemente emparentado con **G2** (ambos = detección de raíces en backend).
 
 **Conclusión clave del diagnóstico:** el normalizador/parseo funciona bien (`^`→`**`, unicode `x²`,
 LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`). El problema real es el
