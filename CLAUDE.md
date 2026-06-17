@@ -127,9 +127,20 @@ Otros: **von_mises**.
 
 **Bugs del gráfico y estado (diagnóstico 2026-06-14):**
 Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuaciones representativas.
-- **G1 — el gráfico NO auto-encuadra. PRIORIDAD ALTA.** La ventana x queda fija (~[0,13]) y no se
-  adapta a la función ni a la raíz → la curva queda fuera de la vista en **11 de 14 casos** (solo se
-  ve cuando pasa por la banda visible: x²−4, 1/x, x² unicode). El backend SÍ calcula; no se muestra.
+- **G1 — el gráfico NO auto-encuadraba. ✅ HECHO (2026-06-17, commit `6722e0d`).** Causa: la vista
+  era fija (`{ox:0, oy:0, scale:60}` en `App.jsx FunctionGraph`), con el origen clavado en la esquina
+  → ventana ~[0,13]×[−12,0] que nunca se adaptaba a la función ni a la raíz; la curva quedaba fuera en
+  11 de 14 casos. Arreglo: **auto-encuadre adaptativo `computeAutoView` con escalas X/Y INDEPENDIENTES**
+  (la escala única no puede mostrar seno y parábola a la vez). X centrada en las raíces (o default
+  centrado si no hay); Y por muestreo de f con **recorte burdo** de extremos (asíntotas/explosiones,
+  `|y|>1e4`) y **eje X siempre visible**. Reset reencuadra; zoom/drag manual intactos. Todo client-side
+  (no backend, no tests). Verificado: x²+1 (parábola+mínimo), x³−2x−5, 1/x−0.5 (hipérbola centrada en
+  raíz), e^x−2; sin(x)−0.5 y tan(x)−x pasaron de 0 a 3874/4209 px de curva (77%/100% del alto).
+  - **Bug evalF arreglado de propina (commit `b3b085a`):** la multiplicación implícita de `evalF`
+    (regex `([0-9a-zA-Z_)])(\s*)(\()`) insertaba `*` antes de TODO `(` → `sin(x)`→`Math.sin*(x)` (NaN),
+    dejando en blanco la curva de toda función con paréntesis (sin/cos/tan/log/sqrt). Restringida a
+    insertar `*` solo tras dígito o `)`. Explica por qué sin/tan salían en blanco en el diagnóstico
+    original: eran DOS bugs superpuestos (encuadre + evaluación), no solo encuadre.
 - **G2 — marcador fantasma x≈0. ✅ HECHO (2026-06-17, commit `87c4f86`).** Causa: el paso 1c de
   `generate_params` (`core/auto_params.py`) usaba el punto de mínimo |f(x)| como raíz **siempre**,
   aunque |f|≠0 → para x²+1 daba `roots_approx:[0]` y el front dibujaba el marcador. Arreglo (junto con
@@ -169,7 +180,7 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
 
 **Conclusión clave del diagnóstico:** el normalizador/parseo funciona bien (`^`→`**`, unicode `x²`,
 LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`). El problema real es el
-**encuadre del gráfico (G1)** y la **gestión de estado (G3 ✅ ya corregido)**, NO la escritura de ecuaciones.
+**encuadre del gráfico (G1 ✅ ya corregido)** y la **gestión de estado (G3 ✅ ya corregido)**, NO la escritura de ecuaciones.
 (Nota de método: la prueba inyectó ecuaciones por form_input, no tecleo real — reconfirmar G1 tecleando a mano.)
 
 **Pendiente — corrección/coherencia:**
