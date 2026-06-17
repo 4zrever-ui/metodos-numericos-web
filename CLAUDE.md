@@ -53,7 +53,7 @@ Otros: **von_mises**.
 
 ## 4. Estado matemático (VERIFICADO — corregido respecto a notas viejas)
 
-- ✅ **149/149 tests pasando.** (+2 de capa endpoint para G6, 2026-06-14.)
+- ✅ **152/152 tests pasando.** (+2 capa endpoint G6, 2026-06-14; +3 detección de raíces G2/G7, 2026-06-17.)
 - ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Secante, Aitken: correctos.
 - ✅ **Ostrowsky: YA CORREGIDO** (bug P1: perdía el signo de f' y divergía con x0<0).
   Fórmula final: `x − f·signo(f')/√(...)`, coherente en backend y Excel.
@@ -130,10 +130,11 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
 - **G1 — el gráfico NO auto-encuadra. PRIORIDAD ALTA.** La ventana x queda fija (~[0,13]) y no se
   adapta a la función ni a la raíz → la curva queda fuera de la vista en **11 de 14 casos** (solo se
   ve cuando pasa por la banda visible: x²−4, 1/x, x² unicode). El backend SÍ calcula; no se muestra.
-- **G2 — marcador fantasma x≈0** en ecuaciones sin raíz real (p. ej. x²+1) y en estado frío.
-  **Origen identificado (2026-06-14): es del BACKEND, no del gráfico.** `/params` para `x**2+1`
-  devuelve `roots:[0]` (con `has_real_roots:null`); el front lo dibuja fielmente. El arreglo va en
-  `core/auto_params.py` (no devolver raíz cuando no hay raíz real), no en `App.jsx`.
+- **G2 — marcador fantasma x≈0. ✅ HECHO (2026-06-17, commit `87c4f86`).** Causa: el paso 1c de
+  `generate_params` (`core/auto_params.py`) usaba el punto de mínimo |f(x)| como raíz **siempre**,
+  aunque |f|≠0 → para x²+1 daba `roots_approx:[0]` y el front dibujaba el marcador. Arreglo (junto con
+  G7, misma familia): el fallback 1c ahora solo se acepta si |f|<1e-6 (toca el eje de verdad), y el
+  paso 1a usa la fuente única `real_roots_from_sympy`. x²+1 → `roots_approx:[]` (sin fantasma).
 - **G3 — resultados rancios. ✅ HECHO (2026-06-14, commit `7b72303`).** Causa raíz: el `onChange`
   de la ecuación ([App.jsx:941]) mutaba `equation` pero no invalidaba `result`/`notice`/`graphRoots`.
   Arreglo: nuevo `handleEquationChange` que limpia `result`/`notice`/`error`/`graphRoots` al cambiar de
@@ -154,15 +155,17 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
   `manualParams` a `/method/all` ([App.jsx resolverTodos]); el backend inyecta el `gx` manual con el helper
   existente `_parse_gx` antes del loop de `method_all` (solo lo consumen los 3 g-methods). +2 tests de capa
   endpoint con contraste (gx convergente/divergente; intervalo bracketea/no). 149/149 pasando.
-- **G7 — `/excel/all` reporta "no tiene raíces reales" para ecuaciones que SÍ las tienen. EN COLA.**
-  Descubierto al verificar G6 en vivo (2026-06-14). `x³−4x+1` (3 raíces reales: −2.11, 0.25, 1.86) genera
-  paneles **"Esta ecuación no tiene raíces reales"** falsos en las **14 hojas** del Excel. Específico:
-  `x³−2x−5` y `x²−4` salen bien. La **pantalla** (`/method/all`) resuelve bien la misma ecuación → es
-  **incoherencia pantalla↔Excel** (la pantalla resuelve, el Excel dice "sin raíces"). `/params` devuelve
-  las 3 raíces correctas pero con `has_real_roots: None`. Causa probable: la detección `_has_real_roots`
-  del generador de Excel (`excel/excel_generator.py`) falla para esa clase de ecuación.
-  **Pre-existente, NO introducido por G6** (ocurre con y sin gx; mi fix tocó el camino de pantalla, no la
-  detección del Excel). Probablemente emparentado con **G2** (ambos = detección de raíces en backend).
+- **G7 — `/excel/all` reportaba "no tiene raíces reales" para ecuaciones que SÍ las tienen. ✅ HECHO
+  (2026-06-17, commit `87c4f86`).** `x³−4x+1` (3 raíces reales) generaba paneles **"Esta ecuación no
+  tiene raíces reales"** falsos. Causa: `_has_real_roots` (`excel/excel_generator.py`) filtraba con
+  `s.is_real is True`, que falla en el **casus irreducibilis** (cúbicas con 3 raíces reales que SymPy
+  expresa con radicales complejos → `is_real` queda en `None`). Arreglo (junto con G2): ambos usan ahora
+  la fuente única **`real_roots_from_sympy`** (`core/auto_params.py`) que verifica realidad
+  **numéricamente** (`|im(evalf)|<1e-9`). x³−4x+1 → 3 raíces; x²+1 → False (correcto). +3 tests
+  (fuente única / G7 / G2). 152/152 pasando.
+  - **Limitación conocida (aceptada):** una raíz **tangente trascendente** sin cambio de signo (que
+    SymPy no resuelve y la grilla no cruza) podría perderse por el gate `|f|<1e-6` del paso 1c en
+    `auto_params`. Caso rarísimo; no se complica el arreglo por él.
 
 **Conclusión clave del diagnóstico:** el normalizador/parseo funciona bien (`^`→`**`, unicode `x²`,
 LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`). El problema real es el
