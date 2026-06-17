@@ -295,7 +295,7 @@ function ComparisonTable({ results, equation, manualParams = {} }) {
 // ── Gráfico interactivo de f(x) ───────────────────────────────────────────
 function FunctionGraph({ equation, roots = [] }) {
   const canvasRef = React.useRef(null);
-  const stateRef  = React.useRef({ ox: 0, oy: 0, scale: 60, dragging: false, lastX: 0, lastY: 0 });
+  const stateRef  = React.useRef({ ox: 0, oy: 0, scaleX: 60, scaleY: 60, dragging: false, lastX: 0, lastY: 0 });
 
   // Parse and evaluate f(x) safely
   const evalF = React.useCallback((x) => {
@@ -320,12 +320,53 @@ function FunctionGraph({ equation, roots = [] }) {
     } catch { return NaN; }
   }, [equation]);
 
+  // Auto-encuadre adaptativo (C-adaptada): escalas X/Y INDEPENDIENTES. Todo client-side.
+  const computeAutoView = React.useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const W = canvas.width, H = canvas.height;
+    if (!W || !H) return;
+
+    // Rango X: centrado en las raíces (si hay) con margen; si no, default centrado.
+    let xMin, xMax;
+    if (roots.length) {
+      const lo = Math.min(...roots), hi = Math.max(...roots);
+      const c = (lo + hi) / 2;
+      const half = Math.max((hi - lo) / 2, 1.5) * 1.4;
+      xMin = c - half; xMax = c + half;
+    } else {
+      xMin = -5; xMax = 5;
+    }
+
+    // Rango Y: muestrear f y ajustar; recorte BURDO de extremos (asíntotas/explosiones).
+    let yLo = Infinity, yHi = -Infinity;
+    const N = 240;
+    for (let i = 0; i <= N; i++) {
+      const x = xMin + (xMax - xMin) * (i / N);
+      const y = evalF(x);
+      if (!isFinite(y) || Math.abs(y) > 1e4) continue;   // recorte burdo
+      if (y < yLo) yLo = y;
+      if (y > yHi) yHi = y;
+    }
+    if (!isFinite(yLo) || !isFinite(yHi)) { yLo = -5; yHi = 5; }   // todo recortado
+    yLo = Math.min(yLo, 0); yHi = Math.max(yHi, 0);               // eje X siempre visible
+    if (yHi - yLo < 1e-6) { yLo -= 1; yHi += 1; }                 // casi constante
+    const padY = (yHi - yLo) * 0.15;
+    yLo -= padY; yHi += padY;
+
+    const s = stateRef.current;
+    s.scaleX = W / (xMax - xMin);
+    s.scaleY = H / (yHi - yLo);
+    s.ox = -xMin * s.scaleX;
+    s.oy = yHi * s.scaleY;
+  }, [evalF, roots]);
+
   const draw = React.useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const W = canvas.width, H = canvas.height;
-    const { ox, oy, scale } = stateRef.current;
+    const { ox, oy, scaleX, scaleY } = stateRef.current;
 
     ctx.clearRect(0, 0, W, H);
 
@@ -333,30 +374,33 @@ function FunctionGraph({ equation, roots = [] }) {
     ctx.fillStyle = "#1a1a2e";
     ctx.fillRect(0, 0, W, H);
 
-    const toScreenX = (x) => ox + x * scale;
-    const toScreenY = (y) => oy - y * scale;
-    const toMathX   = (sx) => (sx - ox) / scale;
+    const toScreenX = (x) => ox + x * scaleX;
+    const toScreenY = (y) => oy - y * scaleY;
+    const toMathX   = (sx) => (sx - ox) / scaleX;
 
     // Grid
     const xMin = toMathX(0), xMax = toMathX(W);
-    const yMin = (oy - H) / scale, yMax = oy / scale;
-    // gridStep adaptativo: mínimo 70px entre líneas, pasos 1/2/5 × 10^n
+    const yMin = (oy - H) / scaleY, yMax = oy / scaleY;
+    // gridStep adaptativo POR EJE (escalas X/Y independientes): mín 70px, pasos 1/2/5 × 10^n
     const minPx = 70;
-    const rawStep = minPx / scale;
-    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
-    const norm = rawStep / mag;
-    let gridStep;
-    if (norm <= 1)      gridStep = 1 * mag;
-    else if (norm <= 2) gridStep = 2 * mag;
-    else if (norm <= 5) gridStep = 5 * mag;
-    else                gridStep = 10 * mag;
+    const niceStep = (s) => {
+      const raw = minPx / s;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+      const norm = raw / mag;
+      if (norm <= 1) return 1 * mag;
+      if (norm <= 2) return 2 * mag;
+      if (norm <= 5) return 5 * mag;
+      return 10 * mag;
+    };
+    const gridStepX = niceStep(scaleX);
+    const gridStepY = niceStep(scaleY);
 
     ctx.strokeStyle = "#353560";
     ctx.lineWidth = 1;
-    for (let gx = Math.ceil(xMin / gridStep) * gridStep; gx <= xMax; gx += gridStep) {
+    for (let gx = Math.ceil(xMin / gridStepX) * gridStepX; gx <= xMax; gx += gridStepX) {
       ctx.beginPath(); ctx.moveTo(toScreenX(gx), 0); ctx.lineTo(toScreenX(gx), H); ctx.stroke();
     }
-    for (let gy = Math.ceil(yMin / gridStep) * gridStep; gy <= yMax; gy += gridStep) {
+    for (let gy = Math.ceil(yMin / gridStepY) * gridStepY; gy <= yMax; gy += gridStepY) {
       ctx.beginPath(); ctx.moveTo(0, toScreenY(gy)); ctx.lineTo(W, toScreenY(gy)); ctx.stroke();
     }
 
@@ -364,14 +408,14 @@ function FunctionGraph({ equation, roots = [] }) {
     ctx.strokeStyle = "#6060a0";
     ctx.lineWidth = 1.5;
     const tickSize = 5;
-    for (let gx = Math.ceil(xMin / gridStep) * gridStep; gx <= xMax; gx += gridStep) {
-      if (Math.abs(gx) < gridStep * 0.01) continue;
+    for (let gx = Math.ceil(xMin / gridStepX) * gridStepX; gx <= xMax; gx += gridStepX) {
+      if (Math.abs(gx) < gridStepX * 0.01) continue;
       const sx = toScreenX(gx);
       const sy = Math.min(Math.max(oy, 0), H);
       ctx.beginPath(); ctx.moveTo(sx, sy - tickSize); ctx.lineTo(sx, sy + tickSize); ctx.stroke();
     }
-    for (let gy = Math.ceil(yMin / gridStep) * gridStep; gy <= yMax; gy += gridStep) {
-      if (Math.abs(gy) < gridStep * 0.01) continue;
+    for (let gy = Math.ceil(yMin / gridStepY) * gridStepY; gy <= yMax; gy += gridStepY) {
+      if (Math.abs(gy) < gridStepY * 0.01) continue;
       const sx = Math.min(Math.max(ox, 0), W);
       const sy = toScreenY(gy);
       ctx.beginPath(); ctx.moveTo(sx - tickSize, sy); ctx.lineTo(sx + tickSize, sy); ctx.stroke();
@@ -407,23 +451,23 @@ function FunctionGraph({ equation, roots = [] }) {
     };
 
     // fmtNum: muestra exactamente los decimales que necesita según gridStep
-    const fmtNum = (v) => {
-      if (Math.abs(v) < gridStep * 0.01) return "0";
-      // Cuántos decimales necesita el paso actual
-      const decimals = Math.max(0, -Math.floor(Math.log10(gridStep)));
+    const fmtNum = (v, step) => {
+      if (Math.abs(v) < step * 0.01) return "0";
+      // Cuántos decimales necesita el paso de ese eje
+      const decimals = Math.max(0, -Math.floor(Math.log10(step)));
       return v.toFixed(decimals);
     };
 
     ctx.textAlign = "center";
-    for (let gx = Math.ceil(xMin / gridStep) * gridStep; gx <= xMax; gx += gridStep) {
-      if (Math.abs(gx) < gridStep * 0.01) continue;
+    for (let gx = Math.ceil(xMin / gridStepX) * gridStepX; gx <= xMax; gx += gridStepX) {
+      if (Math.abs(gx) < gridStepX * 0.01) continue;
       const sx = toScreenX(gx), sy = Math.min(Math.max(oy + 16, 16), H - 6);
-      drawLabel(fmtNum(gx), sx, sy, "center");
+      drawLabel(fmtNum(gx, gridStepX), sx, sy, "center");
     }
-    for (let gy = Math.ceil(yMin / gridStep) * gridStep; gy <= yMax; gy += gridStep) {
-      if (Math.abs(gy) < gridStep * 0.01) continue;
+    for (let gy = Math.ceil(yMin / gridStepY) * gridStepY; gy <= yMax; gy += gridStepY) {
+      if (Math.abs(gy) < gridStepY * 0.01) continue;
       const sx = Math.min(Math.max(ox - 8, 4), W - 4), sy = toScreenY(gy) + 4;
-      drawLabel(fmtNum(gy), sx, sy, "right");
+      drawLabel(fmtNum(gy, gridStepY), sx, sy, "right");
     }
 
     // Origin label
@@ -528,11 +572,13 @@ function FunctionGraph({ equation, roots = [] }) {
     const ro = new ResizeObserver(() => {
       canvas.width  = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
+      computeAutoView();
       draw();
     });
     ro.observe(canvas);
     canvas.width  = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
+    computeAutoView();
     draw();
 
     const onWheel = (e) => {
@@ -544,13 +590,14 @@ function FunctionGraph({ equation, roots = [] }) {
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
       s.ox = mx - (mx - s.ox) * factor;
       s.oy = my - (my - s.oy) * factor;
-      s.scale *= factor;
+      s.scaleX *= factor;
+      s.scaleY *= factor;
       draw();
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
 
     return () => { ro.disconnect(); canvas.removeEventListener("wheel", onWheel); };
-  }, [draw]);
+  }, [draw, computeAutoView]);
 
   // Drag
   const onMouseDown = (e) => {
@@ -571,8 +618,8 @@ function FunctionGraph({ equation, roots = [] }) {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const toScreenX = (x) => s.ox + x * s.scale;
-    const toScreenY = (y) => s.oy - y * s.scale;
+    const toScreenX = (x) => s.ox + x * s.scaleX;
+    const toScreenY = (y) => s.oy - y * s.scaleY;
     const HOVER_PX = 20; // px de proximidad al eje X
 
     let hit = null;
@@ -587,9 +634,9 @@ function FunctionGraph({ equation, roots = [] }) {
 
     // 2) Si el cursor está cerca del eje X, buscar cruce real de f(x)=0 evaluando la curva
     if (hit === null && Math.abs(my - toScreenY(0)) < HOVER_PX) {
-      const mathX = (mx - s.ox) / s.scale;
+      const mathX = (mx - s.ox) / s.scaleX;
       // Buscar signo cambia alrededor de mathX en ventana pequeña
-      const window = HOVER_PX / s.scale;
+      const window = HOVER_PX / s.scaleX;
       const steps = 80;
       let bestRoot = null, bestDist = Infinity;
       for (let i = 0; i < steps; i++) {
@@ -620,11 +667,7 @@ function FunctionGraph({ equation, roots = [] }) {
 
   // Reset view
   const resetView = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    stateRef.current.ox = canvas.width / 2;
-    stateRef.current.oy = canvas.height / 2;
-    stateRef.current.scale = 60;
+    computeAutoView();   // Reset = reencuadra a la función actual
     draw();
   };
 
@@ -633,7 +676,7 @@ function FunctionGraph({ equation, roots = [] }) {
     if (!roots.length) return;
     const canvas = canvasRef.current;
     const cx = roots.reduce((a, b) => a + b, 0) / roots.length;
-    stateRef.current.ox = canvas.width / 2 - cx * stateRef.current.scale;
+    stateRef.current.ox = canvas.width / 2 - cx * stateRef.current.scaleX;
     stateRef.current.oy = canvas.height / 2;
     draw();
   };
