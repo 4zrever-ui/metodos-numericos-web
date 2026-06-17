@@ -111,12 +111,14 @@ def _has_real_roots(fx_str: str):
         import sympy as sp
         x = sp.Symbol("x")
         expr = sp.sympify(fx_str.replace("^", "**"), locals={"x": x})
-        sols = sp.solve(expr, x)
     except Exception:
         return None
-    if not sols:
-        return None
-    reals = [s for s in sols if getattr(s, "is_real", None) is True]
+    # Fuente única de verdad (verificación numérica de realidad, robusta al
+    # casus irreducibilis: x³−4x+1 tiene 3 raíces reales). (G7)
+    from backend.core.auto_params import real_roots_from_sympy
+    reals = real_roots_from_sympy(expr)
+    if reals is None:
+        return None            # SymPy no pudo resolver → desconocido
     return len(reals) > 0
 
 

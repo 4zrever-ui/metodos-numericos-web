@@ -16,6 +16,34 @@ from .equation_parser import ParsedEquation, eval_f, eval_fp, eval_fpp
 
 _x = sp.Symbol("x")
 
+
+def real_roots_from_sympy(f_sympy) -> list[float] | None:
+    """Fuente única de verdad para "raíces reales" (usada por auto_params y por
+    el generador de Excel). Resuelve con SymPy y verifica que cada solución sea
+    real NUMÉRICAMENTE (parte imaginaria ≈ 0), lo que la hace robusta al
+    'casus irreducibilis' (cúbicas con 3 raíces reales que SymPy expresa con
+    radicales complejos y cuyo `.is_real` queda en None).
+
+    Devuelve la lista de raíces reales (posiblemente []), o None si SymPy no
+    puede resolver simbólicamente (p. ej. trascendentes como tan(x)-x).
+    """
+    try:
+        sols = sp.solve(f_sympy, _x)
+    except Exception:
+        return None
+    if not sols:
+        return None
+    reals: list[float] = []
+    for s in sols:
+        try:
+            v = complex(s.evalf())
+            if abs(v.imag) < 1e-9:
+                reals.append(round(v.real, 10))
+        except Exception:
+            pass
+    return reals
+
+
 _SEARCH_RANGE = [
     *range(1, 11),
     *range(0, -11, -1),
@@ -230,19 +258,13 @@ def generate_params(eq: ParsedEquation) -> AutoParams:
     """
     # ── Paso 1: recolectar raíces ──────────────────────────────────────────────
 
-    # 1a. SymPy es la fuente principal (no tiene límite de ±15)
+    # 1a. SymPy es la fuente principal (no tiene límite de ±15). Vía la fuente
+    #     única real_roots_from_sympy, que verifica realidad NUMÉRICAMENTE
+    #     (robusta al casus irreducibilis: x³−4x+1 con 3 raíces reales).
     roots_approx: list[float] = []
-    try:
-        exact_roots = sp.solve(eq.f_sympy, _x)
-        for r in exact_roots:
-            try:
-                rv = float(r.evalf())
-                if math.isfinite(rv):
-                    roots_approx.append(round(rv, 10))
-            except Exception:
-                pass
-    except Exception:
-        pass
+    sym_reals = real_roots_from_sympy(eq.f_sympy)
+    if sym_reals:
+        roots_approx = [r for r in sym_reals if math.isfinite(r)]
 
     # 1b. Grilla ±15 como respaldo (detecta raíces que SymPy no puede resolver,
     #     e.g. tan(x)-x, sin(x), funciones trascendentes en general).
@@ -282,12 +304,15 @@ def generate_params(eq: ParsedEquation) -> AutoParams:
         if not any(abs(approx_r - er) < 1e-6 for er in roots_approx):
             roots_approx.append(approx_r)
 
-    # 1c. Último recurso: mínimo |f(x)| en la grilla
+    # 1c. Último recurso: mínimo |f(x)| en la grilla — SOLO si realmente toca el
+    #     eje (|f|≈0). Antes se reportaba el mínimo siempre, generando una raíz
+    #     fantasma x≈0 para ecuaciones sin raíz real (p. ej. x²+1 → f(0)=1). (G2)
     if not roots_approx:
         vals = [(abs(eval_f(eq, v)), v) for v in grid if math.isfinite(eval_f(eq, v))]
         if vals:
             vals.sort()
-            roots_approx = [vals[0][1]]
+            if vals[0][0] < 1e-6:
+                roots_approx = [vals[0][1]]
 
     # ── Paso 2: elegir root_ref ────────────────────────────────────────────────
     root_ref = _choose_root_ref(roots_approx)
