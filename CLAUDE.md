@@ -153,7 +153,12 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
   una misma ecuación intacto). Verificado en navegador: al cambiar de ecuación la tarjeta/teoría/marcadores
   se limpian al instante y no arrastran la raíz anterior. (Antes: raíz=1 de `cbrt(x)-1` se filtraba a 3
   ecuaciones siguientes; `cos(x)-x` mostraba marcadores de `sin(x)-0.5`.)
-- **G4 — banner de cold-start "sticky":** no desaparece tras responder el backend.
+- **G4 — banner de cold-start "sticky". ✅ HECHO (2026-06-18, commit `bbd8391`).**
+  El banner de wake/cold-start no desaparecía al cambiar de ecuación o de método: `handleEquationChange`
+  y `handleMethodChange` invalidaban `result`/`notice`/`error`/`graphRoots` pero NO apagaban `waking`,
+  así que el aviso de la consulta anterior (ya abandonada) quedaba pegado. Arreglo (Opción A — acordada
+  con el director): `setWaking(false)` en ambos handlers ([App.jsx:813] y [App.jsx:824]). Sin
+  `AbortController`. Solo frontend, sin backend ni tests. `npm run build` OK.
 - **G5 — cold-start de Render contamina la experiencia:** "No se pudo conectar con el backend" y
   requests colgadas en "Calculando…"; el retry/wake no aguanta hasta que Render despierta. Mitigable con keep-alive.
 - **G6 — parámetros manuales incoherentes. ✅ HECHO (2026-06-14, commit `b3bf82a`).** Antes, los
