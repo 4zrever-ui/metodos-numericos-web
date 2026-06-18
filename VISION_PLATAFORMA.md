@@ -105,12 +105,14 @@ niveles de dominio creciente.
 Regla de oro: **un piso bien hecho antes de los diez.** Cada fase es verificable
 y construye sobre la anterior.
 
-**FASE 0 — Cerrar los bugs pendientes.** (EN CURSO)
+**FASE 0 — Cerrar los bugs pendientes.** ✅ CERRADA (2026-06-18)
 - G1 (gráfico no auto-encuadra), G2 (marcador fantasma x≈0, backend),
-  G7 (Excel falso "sin raíces reales", backend), G4 (banner sticky).
-- G2 y G7 son de la misma familia (detección de raíces en backend) → atacar
-  juntos, probablemente comparten causa.
-- Cimientos sólidos antes de construir encima.
+  G7 (Excel falso "sin raíces reales", backend), G4 (banner sticky),
+  G5 (cold-start de Render contamina la experiencia) → **todos resueltos y
+  verificados en vivo.** (Detalle técnico y commits en CLAUDE.md §7.)
+- G2 y G7 fueron de la misma familia (detección de raíces en backend) → se
+  atacaron juntos (compartían causa: realidad de raíces vía `is_real`).
+- Cimientos sólidos antes de construir encima. → **Listo para FASE 1.**
 
 **FASE 1 — Esqueleto de navegación.**
 - Estructura de la plataforma (vestíbulo) + pestañas del módulo, con react-router.

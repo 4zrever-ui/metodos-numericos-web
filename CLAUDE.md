@@ -159,8 +159,23 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
   así que el aviso de la consulta anterior (ya abandonada) quedaba pegado. Arreglo (Opción A — acordada
   con el director): `setWaking(false)` en ambos handlers ([App.jsx:813] y [App.jsx:824]). Sin
   `AbortController`. Solo frontend, sin backend ni tests. `npm run build` OK.
-- **G5 — cold-start de Render contamina la experiencia:** "No se pudo conectar con el backend" y
-  requests colgadas en "Calculando…"; el retry/wake no aguanta hasta que Render despierta. Mitigable con keep-alive.
+- **G5 — cold-start de Render contamina la experiencia. ✅ HECHO (2026-06-18, commit `4705a82`).**
+  Antes: "No se pudo conectar con el backend" y requests colgadas en "Calculando…"; el retry/wake
+  (4 reintentos, ~30 s) no aguantaba hasta que Render despierta (~30–60 s) y un intento sin respuesta
+  no tenía timeout, así que se quedaba pegado para siempre. Arreglo (solo frontend, **NO keep-alive** —
+  decisión del director; sin backend ni tests):
+  - **Cambio C (`fetchWithWake`):** presupuesto de reintentos subido a ~75 s (7 reintentos, backoff
+    3/6/9/12/15… con tope de 15 s) + **timeout por intento** (`AbortController`, 22 s) para que un intento
+    colgado se aborte y se reintente en vez de quedarse pegado (mata el "Calculando…" eterno; es timeout
+    de request, uso distinto al `AbortController` de cancelación descartado en G4) + **deadline global de
+    90 s** que corta los reintentos aunque queden, acotando el peor caso (~112 s techo real). Banner de
+    wake con texto honesto (~30–60 s, responde al instante mientras se siga usando; ya no promete
+    inmediatez perpetua).
+  - **Cambio B (warm-up):** `useEffect` al montar dispara `GET /` (trivial, sin SymPy) en segundo plano
+    y en silencio para empezar a despertar Render mientras el alumno lee y escribe; si falla, se traga el error.
+  - `npm run build` OK, eslint 0 errores. **Verificado en vivo** (cold-start real: Render dormido ~15 min,
+    recarga + cambio de ecuación mientras despierta). **G4 quedó reconfirmado en vivo en el mismo
+    cold-start** (el banner ya no se queda pegado al cambiar de ecuación/método).
 - **G6 — parámetros manuales incoherentes. ✅ HECHO (2026-06-14, commit `b3bf82a`).** Antes, los
   `manualParams` (g(x), [a,b], x₀) se trataban de 3 formas: individual los usaba, "Resolver todos" en
   pantalla los ignoraba (solo enviaba `{equation}` a `/method/all`), y "Excel todos" sí los aplicaba →
