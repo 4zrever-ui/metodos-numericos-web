@@ -810,6 +810,7 @@ export default function App() {
     setResult(null);
     setError(null);
     setNotice(null);
+    setWaking(false); // G4: el banner pertenecía a la consulta anterior, ya abandonada
   };
 
   const handleEquationChange = (e) => {
@@ -820,6 +821,7 @@ export default function App() {
     setNotice(null);
     setError(null);
     setGraphRoots([]);
+    setWaking(false); // G4: el banner pertenecía a la consulta anterior, ya abandonada
     fetchAutoParams(value);
   };
 
