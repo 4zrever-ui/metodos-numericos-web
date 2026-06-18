@@ -61,26 +61,42 @@ function formatValue(val) {
   return String(val);
 }
 
-// ── Fetch con reintento para el "cold start" de Render (free tier) ────────────
+// ── Fetch con reintento + timeout para el "cold start" de Render (free tier) ──
 // Render hiberna el backend tras inactividad. El primer request puede tardar
-// 30–60 s o devolver 502/503 mientras el servidor despierta. Esta función
-// reintenta con backoff y llama onWaking() para que la UI avise al usuario.
-async function fetchWithWake(url, options, { onWaking, retries = 4 } = {}) {
+// 30–60 s o devolver 502/503 mientras el servidor despierta. Esta función (G5):
+//  · reintenta con backoff (con tope por espera) hasta cubrir ~75 s de
+//    presupuesto, suficiente para aguantar un arranque frío de Render;
+//  · pone un timeout por intento (AbortController) para que un intento colgado
+//    se reintente en vez de quedarse pegado para siempre (mata el "Calculando…"
+//    eterno). OJO: este AbortController es de TIMEOUT de request, no la
+//    cancelación que se descartó en G4 — uso distinto, aquí sí aplica.
+//  · llama onWaking() en el primer reintento para que la UI avise al usuario.
+const WAKE_RETRIES         = 7;      // 8 intentos en total
+const WAKE_BACKOFF_CAP_MS  = 15000;  // tope por espera entre intentos
+const WAKE_ATTEMPT_TIMEOUT = 22000;  // timeout por intento (entre 20–25 s)
+const WAKE_DEADLINE_MS     = 90000;  // presupuesto global: corta los reintentos pasados ~90 s
+
+async function fetchWithWake(url, options, { onWaking, retries = WAKE_RETRIES } = {}) {
+  const deadline = Date.now() + WAKE_DEADLINE_MS;
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), WAKE_ATTEMPT_TIMEOUT);
     try {
-      const res = await fetch(url, options);
-      if ([502, 503, 504].includes(res.status) && attempt < retries) {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      if ([502, 503, 504].includes(res.status) && attempt < retries && Date.now() < deadline) {
         if (attempt === 0 && onWaking) onWaking();
-        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, Math.min(3000 * (attempt + 1), WAKE_BACKOFF_CAP_MS)));
         continue;
       }
       return res;
     } catch (e) {
+      clearTimeout(timer);
       lastErr = e;
-      if (attempt < retries) {
+      if (attempt < retries && Date.now() < deadline) {
         if (attempt === 0 && onWaking) onWaking();
-        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, Math.min(3000 * (attempt + 1), WAKE_BACKOFF_CAP_MS)));
         continue;
       }
       throw lastErr;
@@ -795,6 +811,14 @@ export default function App() {
     } catch { /* silencioso */ }
   };
 
+  // G5 (warm-up): al montar, empuja a Render a despertar en segundo plano y en
+  // silencio mientras el alumno lee y escribe, para acortar el cold-start de la
+  // primera consulta real. GET / es trivial (no toca SymPy). Si falla, se traga
+  // el error: no hay banner ni mensaje, es solo un empujón best-effort.
+  React.useEffect(() => {
+    fetch(`${API}/`).catch(() => {});
+  }, []);
+
   // Estado del flujo comparativo — independiente, no toca nada de arriba
   const [allResults, setAllResults]     = useState(null);
   const [allNotice, setAllNotice]       = useState(null);
@@ -990,9 +1014,9 @@ export default function App() {
         <div className="waking-banner">
           <span className="waking-spinner" aria-hidden="true" />
           <div>
-            <strong>El servidor está iniciando…</strong> La primera consulta tras un
-            periodo de inactividad puede tardar hasta un minuto. Las siguientes serán
-            inmediatas.
+            <strong>El servidor está despertando…</strong> Se suspende tras un periodo
+            de inactividad, así que la primera consulta puede tardar entre 30 y 60
+            segundos. Una vez activo responde al instante mientras lo sigas usando.
           </div>
         </div>
       )}
