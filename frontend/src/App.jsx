@@ -70,13 +70,15 @@ function formatValue(val) {
 //    se reintente en vez de quedarse pegado para siempre (mata el "Calculando…"
 //    eterno). OJO: este AbortController es de TIMEOUT de request, no la
 //    cancelación que se descartó en G4 — uso distinto, aquí sí aplica.
-//  · llama onWaking() en el primer reintento para que la UI avise al usuario.
+// El aviso de "servidor despertando" lo gestiona el llamador con un timer corto
+// (G9), no esta función — por eso ya no recibe onWaking.
 const WAKE_RETRIES         = 7;      // 8 intentos en total
 const WAKE_BACKOFF_CAP_MS  = 15000;  // tope por espera entre intentos
 const WAKE_ATTEMPT_TIMEOUT = 22000;  // timeout por intento (entre 20–25 s)
 const WAKE_DEADLINE_MS     = 90000;  // presupuesto global: corta los reintentos pasados ~90 s
+const WAKE_BANNER_DELAY_MS = 4500;   // G9: el banner se anuncia a los ~4.5 s, no al fallar el 1er intento
 
-async function fetchWithWake(url, options, { onWaking, retries = WAKE_RETRIES } = {}) {
+async function fetchWithWake(url, options, { retries = WAKE_RETRIES } = {}) {
   const deadline = Date.now() + WAKE_DEADLINE_MS;
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -86,7 +88,6 @@ async function fetchWithWake(url, options, { onWaking, retries = WAKE_RETRIES } 
       const res = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timer);
       if ([502, 503, 504].includes(res.status) && attempt < retries && Date.now() < deadline) {
-        if (attempt === 0 && onWaking) onWaking();
         await new Promise((r) => setTimeout(r, Math.min(3000 * (attempt + 1), WAKE_BACKOFF_CAP_MS)));
         continue;
       }
@@ -95,7 +96,6 @@ async function fetchWithWake(url, options, { onWaking, retries = WAKE_RETRIES } 
       clearTimeout(timer);
       lastErr = e;
       if (attempt < retries && Date.now() < deadline) {
-        if (attempt === 0 && onWaking) onWaking();
         await new Promise((r) => setTimeout(r, Math.min(3000 * (attempt + 1), WAKE_BACKOFF_CAP_MS)));
         continue;
       }
@@ -884,6 +884,12 @@ export default function App() {
     setResult(null);
     setLoading(true);
     setWaking(false);
+    // G9: anuncia el banner a los ~4.5 s desde el inicio (no al fallar el 1er intento,
+    // ~22 s). Si la respuesta llega antes, el finally lo cancela y no aparece. Respeta
+    // la guarda de G8: no enciende el banner de una consulta superada.
+    const wakeTimer = setTimeout(() => {
+      if (reqIdRef.current === myId) setWaking(true);
+    }, WAKE_BANNER_DELAY_MS);
     try {
       const { url } = METHODS[method];
       const normEq = normalizeMathInput(equation);
@@ -901,7 +907,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      }, { onWaking: () => { if (reqIdRef.current === myId) setWaking(true); } });
+      });
       if (reqIdRef.current !== myId) return; // G8: consulta superada, no escribir nada
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -946,6 +952,7 @@ export default function App() {
           : e.message
       );
     } finally {
+      clearTimeout(wakeTimer); // G9: cubre todas las salidas (rápida, lenta, error, superada)
       if (reqIdRef.current === myId) { // G8: solo el dueño actual resetea loading/waking
         setLoading(false);
         setWaking(false);
@@ -965,6 +972,10 @@ export default function App() {
     setAllResults(null);
     setLoadingAll(true);
     setWaking(false);
+    // G9: banner temprano (~4.5 s); el finally lo cancela si la respuesta llega antes.
+    const wakeTimer = setTimeout(() => {
+      if (reqIdRef.current === myId) setWaking(true);
+    }, WAKE_BANNER_DELAY_MS);
     try {
       const normEq = normalizeMathInput(equation);
       // G6: enviar parámetros manuales; el backend los aplica method-aware
@@ -982,7 +993,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ equation: normEq, ...cleanParams }),
-      }, { onWaking: () => { if (reqIdRef.current === myId) setWaking(true); } });
+      });
       if (reqIdRef.current !== myId) return; // G8: consulta superada, no escribir nada
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -1007,6 +1018,7 @@ export default function App() {
           : e.message
       );
     } finally {
+      clearTimeout(wakeTimer); // G9: cubre todas las salidas
       if (reqIdRef.current === myId) { // G8: solo el dueño actual resetea loadingAll/waking
         setLoadingAll(false);
         setWaking(false);
