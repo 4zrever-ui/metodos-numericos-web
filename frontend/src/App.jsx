@@ -826,26 +826,44 @@ export default function App() {
   const [errorAll, setErrorAll]         = useState(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
 
+  // G8: id de petición ÚNICO y compartido por AMBOS flujos (resolver y resolverTodos).
+  // "Último gana": cada cálculo captura su id al iniciar; cambiar ecuación/método —o
+  // iniciar otro cálculo— lo incrementa, invalidando lo que esté en vuelo. Toda
+  // escritura de estado tras un await se descarta en silencio si su id ya fue superado.
+  const reqIdRef = React.useRef(0);
+
   const currentParamKeys = METHODS[method].params;
 
   const handleMethodChange = (e) => {
+    reqIdRef.current++; // G8: invalida cualquier consulta en vuelo (ambos flujos)
     setMethod(e.target.value);
     setManualParams({});
     setResult(null);
     setError(null);
     setNotice(null);
+    setAllResults(null); // G8: el flujo comparativo también arrastraba estado viejo
+    setAllNotice(null);
+    setErrorAll(null);
     setWaking(false); // G4: el banner pertenecía a la consulta anterior, ya abandonada
+    setLoading(false); // G8: el botón deja de decir "Calculando…" al instante
+    setLoadingAll(false);
   };
 
   const handleEquationChange = (e) => {
     const value = e.target.value;
+    reqIdRef.current++; // G8: invalida cualquier consulta en vuelo (ambos flujos)
     setEquation(value);
     // G3: al cambiar la ecuación, invalidar el resultado y los marcadores anteriores
     setResult(null);
     setNotice(null);
     setError(null);
     setGraphRoots([]);
+    setAllResults(null); // G8: el flujo comparativo también arrastraba estado viejo
+    setAllNotice(null);
+    setErrorAll(null);
     setWaking(false); // G4: el banner pertenecía a la consulta anterior, ya abandonada
+    setLoading(false); // G8: el botón deja de decir "Calculando…" al instante
+    setLoadingAll(false);
     fetchAutoParams(value);
   };
 
@@ -860,6 +878,7 @@ export default function App() {
       setResult(null);
       return;
     }
+    const myId = ++reqIdRef.current; // G8: captura el id de esta consulta
     setError(null);
     setNotice(null);
     setResult(null);
@@ -882,7 +901,8 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      }, { onWaking: () => setWaking(true) });
+      }, { onWaking: () => { if (reqIdRef.current === myId) setWaking(true); } });
+      if (reqIdRef.current !== myId) return; // G8: consulta superada, no escribir nada
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(
@@ -890,10 +910,12 @@ export default function App() {
         );
       }
       const data = await res.json();
+      if (reqIdRef.current !== myId) return; // G8
       if (!data || typeof data !== "object") throw new Error("Respuesta inválida del backend.");
       const applicable = data.applicable !== false;
       if (!applicable || !data.converged) {
         const diag = await fetchDiagnose(normEq, method, applicable);
+        if (reqIdRef.current !== myId) return; // G8
         setNotice(diag);
         setResult(applicable ? data : null); // si no aplica, no hay tabla útil
         return;
@@ -917,14 +939,17 @@ export default function App() {
         setManualParams((prev) => ({ ...filled, ...prev }));
       }
     } catch (e) {
+      if (reqIdRef.current !== myId) return; // G8: no mostrar el error de una consulta superada
       setError(
         e instanceof TypeError && e.message.includes("fetch")
           ? "No se pudo conectar con el backend. ¿Está corriendo uvicorn?"
           : e.message
       );
     } finally {
-      setLoading(false);
-      setWaking(false);
+      if (reqIdRef.current === myId) { // G8: solo el dueño actual resetea loading/waking
+        setLoading(false);
+        setWaking(false);
+      }
     }
   };
 
@@ -934,6 +959,7 @@ export default function App() {
       setErrorAll("Ingresa una ecuación antes de resolver.");
       return;
     }
+    const myId = ++reqIdRef.current; // G8: captura el id de esta consulta
     setErrorAll(null);
     setAllNotice(null);
     setAllResults(null);
@@ -956,7 +982,8 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ equation: normEq, ...cleanParams }),
-      }, { onWaking: () => setWaking(true) });
+      }, { onWaking: () => { if (reqIdRef.current === myId) setWaking(true); } });
+      if (reqIdRef.current !== myId) return; // G8: consulta superada, no escribir nada
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(
@@ -964,21 +991,26 @@ export default function App() {
         );
       }
       const data = await res.json();
+      if (reqIdRef.current !== myId) return; // G8
       setAllResults(data.results);
       const algunoConverge = (data.results || []).some((r) => r.converged);
       if (!algunoConverge) {
         const diag = await fetchDiagnose(normEq, "", true);
+        if (reqIdRef.current !== myId) return; // G8
         setAllNotice(diag.has_real_roots === false ? diag : null);
       }
     } catch (e) {
+      if (reqIdRef.current !== myId) return; // G8: no mostrar el error de una consulta superada
       setErrorAll(
         e instanceof TypeError && e.message.includes("fetch")
           ? "No se pudo conectar con el backend. ¿Está corriendo uvicorn?"
           : e.message
       );
     } finally {
-      setLoadingAll(false);
-      setWaking(false);
+      if (reqIdRef.current === myId) { // G8: solo el dueño actual resetea loadingAll/waking
+        setLoadingAll(false);
+        setWaking(false);
+      }
     }
   };
 
