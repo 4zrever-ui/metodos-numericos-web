@@ -230,6 +230,14 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
 **Deuda técnica:**
 - Optimización futura: cargar KaTeX de forma diferida (lazy load) para recuperar el
   peso inicial del bundle (~260 kB extra). No urgente.
+- **Candidato a G10 (no abordado) — posible carrera en `fetchAutoParams`:** al tipear
+  rápido en la ecuación, `fetchAutoParams` ([App.jsx]) dispara un `fetch` a `/params`
+  por cada cambio sin guarda de "último gana", así que la respuesta de una ecuación
+  vieja podría pisar `autoParams`/`graphRoots` de la nueva (params/raíces rancios).
+  Queda **fuera del alcance de G8** (que cubre solo el flujo de cálculo de `resolver`/
+  `resolverTodos`); es un flujo aparte y menor (los params son editables y las raíces
+  son del gráfico). **Revisar solo si algún día se ven params/raíces rancios al
+  escribir;** el arreglo sería extender el mismo patrón `reqIdRef` a `fetchAutoParams`.
 
 ---
 
