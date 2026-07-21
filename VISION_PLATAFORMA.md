@@ -43,8 +43,9 @@ PLATAFORMA (el edificio)
   (no cae directo en la calculadora).
 - Dentro de cada módulo: **pestañas** (Aprender / Practicar / Calcular) para que
   el estudiante salte fluido entre comprender, hacer y verificar.
-- Nombre de la plataforma: PENDIENTE de decidir ("Métodos Numéricos" ya no
-  alcanza como nombre del conjunto).
+- Nombre de la plataforma: **NumériCa** (decidido 2026-07-21).
+  **NumériCa — plataforma de matemática computacional académica.**
+  ("Métodos Numéricos" pasa a ser el nombre del PRIMER MÓDULO, no del conjunto.)
 
 ---
 

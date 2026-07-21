@@ -5,11 +5,15 @@
 > previas de CLAUDE.md). Si algo aquí contradice a otro .md viejo, manda éste.
 >
 > Claude Code lo lee automáticamente al abrir el proyecto.
-> Última actualización: 2026-06-14 (push a origin/main + verificación en navegador en vivo).
+> Última actualización: 2026-07-21 (nombre de la plataforma: NumériCa + regla 8 de §6).
 
 ---
 
 ## 1. Qué es el proyecto
+
+**NumériCa — plataforma de matemática computacional académica** (nombre decidido
+2026-07-21). "Métodos Numéricos" es el nombre del PRIMER MÓDULO, no del conjunto;
+ver `VISION_PLATAFORMA.md` §2 para la arquitectura de módulos.
 
 Plataforma web **académica** para resolver ecuaciones no lineales f(x) = 0 con
 14 métodos numéricos, pensada para que un estudiante **aprenda** (no solo una
@@ -20,8 +24,7 @@ referencia (`amburger.xlsx` = fuente de verdad para formato y lógica).
 - **Frontend:** React + Vite. Hoy todo el UI vive en `frontend/src/App.jsx`. Puerto 5173.
 - **Backend:** FastAPI + SymPy. Derivadas simbólicas (no diferencias finitas). Puerto 8000.
 - **Despliegue:** Frontend en Vercel; backend en Render (free tier → **hiberna**, primer request lento).
-- **Rama actual:** `main`. Todo el trabajo de esta sesión está en commits **locales** (nada
-  pusheado). Render sirve una versión vieja hasta que se haga push (ver §7).
+- **Rama actual:** `main`, sincronizada con `origin/main` (verificado 2026-07-21).
 
 ---
 
@@ -111,6 +114,13 @@ Otros: **von_mises**.
 5. **Cold start de Render:** todo fetch nuevo contempla retry + aviso al usuario.
 6. **`amburger.xlsx` = fuente de verdad** para formato y fórmulas de Excel.
 7. **No reemplazar archivos a ciegas:** mostrar diff y esperar confirmación.
+8. **Este CLAUDE.md se actualiza ANTES de commitear el código.** Al terminar
+   cualquier tarea (bug, feature o decisión) se anota aquí qué se hizo, el commit y
+   el estado nuevo, en la misma tarea — no como paso posterior.
+   **Si algo no está en el CLAUDE.md, no existe.** (Regla permanente del director,
+   2026-07-21. Motivo: G8 y G9 quedaron solo en mensajes de commit y el estado real
+   se desincronizó del documentado.) Cuando lo que cambia es el plan o la fase —no el
+   estado técnico— el documento a actualizar es `VISION_PLATAFORMA.md`.
 
 ---
 
