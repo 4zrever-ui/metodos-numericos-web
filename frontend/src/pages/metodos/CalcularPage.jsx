@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import "./App.css";
-import { normalizeMathInput, normalizationPreview } from "./mathNotation";
+import "../../App.css";
+import { normalizeMathInput, normalizationPreview } from "../../mathNotation";
+import { API } from "../../api";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-
-const API = "https://metodos-numericos-web.onrender.com";
 
 const METHODS = {
   newton:               { label: "Newton-Raphson",    url: "/method/newton",               params: ["x0", "tol"] },
@@ -774,7 +773,7 @@ function Teoria({ result }) {
 }
 
 // ── App principal ─────────────────────────────────────────────────────────────
-export default function App() {
+export default function CalcularPage() {
   // Estado del flujo individual (sin cambios)
   const [equation, setEquation]         = useState("x^3 - 2*x - 5");
   const [method, setMethod]             = useState("newton");
@@ -811,13 +810,11 @@ export default function App() {
     } catch { /* silencioso */ }
   };
 
-  // G5 (warm-up): al montar, empuja a Render a despertar en segundo plano y en
-  // silencio mientras el alumno lee y escribe, para acortar el cold-start de la
-  // primera consulta real. GET / es trivial (no toca SymPy). Si falla, se traga
-  // el error: no hay banner ni mensaje, es solo un empujón best-effort.
-  React.useEffect(() => {
-    fetch(`${API}/`).catch(() => {});
-  }, []);
+  // G5 (warm-up): vive en PlataformaLayout desde FASE 1, no aquí. Al meter el
+  // vestíbulo delante de la calculadora, dispararlo al montar ESTA página lo
+  // habría retrasado hasta que el estudiante llegase a Calcular — justo el
+  // cold-start que G5 costó amortiguar. En el layout arranca al cargar el sitio
+  // y Render despierta mientras el estudiante elige módulo.
 
   // Estado del flujo comparativo — independiente, no toca nada de arriba
   const [allResults, setAllResults]     = useState(null);
@@ -1046,13 +1043,10 @@ export default function App() {
     }
   };
 
+  // El wrapper .app y las cabeceras (NumériCa / Métodos Numéricos + pestañas)
+  // los ponen PlataformaLayout y ModuloLayout; aquí solo va el contenido.
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Métodos Numéricos</h1>
-        <p className="subtitle">Resolución de ecuaciones no lineales</p>
-      </header>
-
+    <>
       {/* ── Banner cold-start de Render ── */}
       {waking && (
         <div className="waking-banner">
@@ -1247,6 +1241,6 @@ export default function App() {
           <ComparisonTable results={allResults} equation={normalizeMathInput(equation)} manualParams={manualParams} />
         </section>
       )}
-    </div>
+    </>
   );
 }

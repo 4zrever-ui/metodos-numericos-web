@@ -1,0 +1,175 @@
+/* Estilos del esqueleto de plataforma (FASE 1): cabecera de NumériCa, vestíbulo,
+   pestañas del módulo y páginas-esqueleto.
+
+   Va en archivo aparte y no en App.css a propósito: App.css es el CSS de la
+   calculadora, ya verificado, y esta fase no lo toca. Reutiliza las variables de
+   tema de index.css, así que hereda claro/oscuro sin trabajo extra. */
+
+/* ── Cabecera de la plataforma ────────────────────────────────────── */
+.plataforma-header {
+  margin-bottom: 1.75rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.plataforma-marca {
+  display: inline-block;
+  font-family: var(--heading);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+.plataforma-marca:hover {
+  color: var(--accent);
+}
+
+.plataforma-marca-acento {
+  color: var(--accent);
+}
+
+.plataforma-lema {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+/* ── Vestíbulo ────────────────────────────────────────────────────── */
+.vestibulo-intro {
+  margin: 0 0 1.25rem;
+}
+
+.vestibulo-modulos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.modulo-card {
+  display: block;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+a.modulo-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+
+.modulo-card h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+  color: var(--text-h);
+}
+
+.modulo-card-desc {
+  margin: 0 0 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.modulo-card-cta {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* El módulo anunciado pero no construido: visible, claramente no pulsable. */
+.modulo-card--proximo {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--code-bg);
+}
+
+.modulo-card--proximo .modulo-card-cta {
+  color: var(--text);
+}
+
+/* ── Cabecera y pestañas del módulo ───────────────────────────────── */
+.modulo-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.9rem;
+  letter-spacing: -0.5px;
+  color: var(--text-h);
+}
+
+.modulo-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: 1.1rem 0 1.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modulo-tab {
+  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.modulo-tab:hover {
+  color: var(--text-h);
+}
+
+.modulo-tab--activa {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Foco visible por teclado: navegación accesible entre pestañas. */
+.modulo-tab:focus-visible,
+.plataforma-marca:focus-visible,
+a.modulo-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Páginas-esqueleto (Aprender / Practicar / 404) ───────────────── */
+.pagina-esqueleto h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+  color: var(--text-h);
+}
+
+.pagina-esqueleto ul {
+  padding-left: 1.2rem;
+  line-height: 1.6;
+}
+
+.pagina-esqueleto li {
+  margin-bottom: 0.6rem;
+}
+
+.pagina-esqueleto-nota {
+  font-size: 0.9rem;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--accent-border);
+  background: var(--accent-bg);
+  border-radius: 0 6px 6px 0;
+}
+
+@media (max-width: 560px) {
+  .modulo-tabs {
+    gap: 0;
+  }
+
+  .modulo-tab {
+    flex: 1;
+    text-align: center;
+    padding: 0.55rem 0.4rem;
+    font-size: 0.9rem;
+  }
+}
