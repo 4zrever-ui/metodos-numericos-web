@@ -5,7 +5,7 @@
 > previas de CLAUDE.md). Si algo aquí contradice a otro .md viejo, manda éste.
 >
 > Claude Code lo lee automáticamente al abrir el proyecto.
-> Última actualización: 2026-07-21 (nombre de la plataforma: NumériCa + regla 8 de §6).
+> Última actualización: 2026-07-22 (FASE 1 cerrada: esqueleto de navegación con react-router v7).
 
 ---
 
@@ -21,7 +21,23 @@ calculadora). Diferencial único: exporta Excel con **fórmulas nativas reales y
 editables**, no valores pegados, replicando las hojas Excel académicas de
 referencia (`amburger.xlsx` = fuente de verdad para formato y lógica).
 
-- **Frontend:** React + Vite. Hoy todo el UI vive en `frontend/src/App.jsx`. Puerto 5173.
+- **Frontend:** React + Vite + **react-router v7**. Puerto 5173. Desde FASE 1 el UI está
+  repartido en rutas (ya NO todo en `App.jsx`, que dejó de existir):
+
+```
+frontend/src/
+├── main.jsx              monta <BrowserRouter>
+├── routes.jsx            el mapa de rutas, en un solo sitio
+├── api.js                const API (la usan la calculadora y el warm-up)
+├── index.css             variables de tema · App.css  CSS de la calculadora
+├── plataforma.css        CSS del esqueleto (cabecera, vestíbulo, pestañas)
+├── layouts/
+│   ├── PlataformaLayout.jsx   cabecera NumériCa + .app + warm-up de G5
+│   └── ModuloLayout.jsx       título del módulo + pestañas (NavLink)
+└── pages/
+    ├── Vestibulo.jsx · NoEncontrada.jsx
+    └── metodos/  CalcularPage.jsx (ex-App.jsx) · AprenderPage.jsx · PracticarPage.jsx
+```
 - **Backend:** FastAPI + SymPy. Derivadas simbólicas (no diferencias finitas). Puerto 8000.
 - **Despliegue:** Frontend en Vercel; backend en Render (free tier → **hiberna**, primer request lento).
 - **Rama actual:** `main`, sincronizada con `origin/main` (verificado 2026-07-21).
@@ -94,6 +110,44 @@ Otros: **von_mises**.
   Render, que tiene la versión vieja; hay que pushear estos commits para verla en vivo.)
 - Docs reorganizados (commit `5d388fd`): este CLAUDE.md es la fuente única; los .md
   viejos están en `_historico/`.
+
+**FASE 1 — Esqueleto de navegación (2026-07-22, commits `6e9eeb4` + `267b349`):**
+- **react-router v7** (`6e9eeb4`) y no v6: v6 sigue en mantenimiento y declara peer
+  `react >=16.8`; v7 declara `>=18` y soporta oficialmente el React 19.2 del proyecto.
+  Para el API declarativo que se usa (`BrowserRouter`, `Routes`, `Route`, `NavLink`,
+  `Outlet`, `Navigate`) v7 es idéntico a v6 — el salto mayor fue por los modos
+  framework/data. ~20 kB gzip, sin conflictos.
+- **Rutas** (`267b349`, `src/routes.jsx`): `/` vestíbulo · `/metodos` → redirige a
+  `/metodos/calcular` · `/metodos/{calcular,aprender,practicar}` · `*` 404.
+  `/metodos` apunta a Calcular por ser lo único con contenido real hoy; cuando
+  Aprender esté llena (Fase 2) el destino natural pasa a ser Aprender.
+- **Principio: mover, no reescribir.** `App.jsx` cargaba 9 bugs cerrados y verificados
+  en vivo (G1–G9). Se movió con `git mv` (historial conservado) a
+  `pages/metodos/CalcularPage.jsx`: de sus 1252 líneas solo cambian **32** (imports,
+  nombre del componente, y la cabecera + wrapper `.app` que suben a los layouts).
+  Los 9 componentes internos (`FunctionGraph` ~409 líneas, `Katex`, `Teoria`…) **NO se
+  extraen todavía** — su momento es la Fase 2, cuando Aprender los reutilice de verdad.
+- **Warm-up de G5 subido a `PlataformaLayout`** (decisión del director): al meter el
+  vestíbulo delante, dispararlo al montar la calculadora lo habría retrasado hasta que
+  el estudiante llegase a Calcular, devolviendo el cold-start que G5 costó amortiguar.
+  En el layout monta al cargar el sitio → Render despierta mientras se elige módulo.
+  La URL del backend se extrae a `src/api.js` para no duplicarla en dos ficheros.
+- **`vercel.json`** con rewrite SPA (`/(.*)` → `/index.html`): sin él, recargar en
+  `/metodos/calcular` pide ese fichero al servidor y da 404. No aparece en `npm run dev`,
+  solo en producción. ⚠️ Está en `frontend/vercel.json` asumiendo que el *Root Directory*
+  del proyecto de Vercel es `frontend/`; si estuviera en la raíz del repo, hay que moverlo.
+- **`index.html`:** `<title>` de "frontend" → NumériCa, `lang="es"`, meta description.
+  (Cierra parte del punto 7 de la hoja de ruta.)
+- **Estilos:** `src/plataforma.css` nuevo; `App.css` **no se toca**. Reutiliza las
+  variables de `index.css` → hereda claro/oscuro sin trabajo extra.
+- **Verificado en navegador (dev):** 5 rutas + 404, redirección de `/metodos`, pestaña
+  activa, 0 errores de consola, warm-up disparando desde `/`. **Regresión de la
+  calculadora:** x³−2x−5 → 2.094551482 en 3 iteraciones con teoría KaTeX y tabla;
+  G3 (cambiar ecuación limpia resultados) y G1 (sin(x)−0.5 encuadra al 77% del alto /
+  100% del ancho — los mismos números registrados para G1) siguen vivos.
+  `npm run build` OK, eslint **0 errores** (2 warnings preexistentes en el código movido).
+- **Backend: cero cambios.** El front habla por URL absoluta y rutas fijas; los 152 tests
+  ni se ejecutan ni se rozan.
 
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
@@ -183,6 +237,7 @@ Diagnóstico en navegador (Claude in Chrome) contra el sitio en vivo, 14 ecuacio
     inmediatez perpetua).
   - **Cambio B (warm-up):** `useEffect` al montar dispara `GET /` (trivial, sin SymPy) en segundo plano
     y en silencio para empezar a despertar Render mientras el alumno lee y escribe; si falla, se traga el error.
+    **Desde FASE 1 este `useEffect` vive en `PlataformaLayout`, no en la calculadora** (ver §5).
   - `npm run build` OK, eslint 0 errores. **Verificado en vivo** (cold-start real: Render dormido ~15 min,
     recarga + cambio de ecuación mientras despierta). **G4 quedó reconfirmado en vivo en el mismo
     cold-start** (el banner ya no se queda pegado al cambiar de ecuación/método).
@@ -224,9 +279,12 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
 4. UX matemática restante: barra de símbolos rápidos (π, √, x², ÷, ×). El normalizador ya está integrado.
 5. Canvas del gráfico adaptable claro/oscuro (el gráfico ya existe; hoy fondo oscuro hardcodeado)
    + aviso de raíz exacta (x₀ ya es la raíz, iters=0).
-6. Estructura de navegación (react-router) — hoy todo es una página; necesario para que
-   teoría / Excel / práctica tengan dónde vivir.
-7. Identidad académica: landing, encabezado institucional, `<title>` correcto (hoy "frontend").
+6. ✅ HECHO — Estructura de navegación (react-router v7), FASE 1, 2026-07-22
+   (commits `6e9eeb4` + `267b349`). Vestíbulo + pestañas Aprender/Practicar/Calcular.
+   Detalle en §5.
+7. Identidad académica: landing, encabezado institucional. **`<title>` ✅ hecho en FASE 1**
+   (ahora "NumériCa — Plataforma de matemática computacional", `lang="es"` + meta
+   description). Quedan pendientes la landing y el encabezado institucional.
 8. **Constructor de Excel paso a paso** — el diferenciador único del proyecto.
 9. Corregir Newton 2do orden (ambas ramas del discriminante).
 10. Reconciliar Ostrowsky con la fórmula estándar de 2 pasos (hoy usa la variante `copysign`,
@@ -240,8 +298,18 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
 **Deuda técnica:**
 - Optimización futura: cargar KaTeX de forma diferida (lazy load) para recuperar el
   peso inicial del bundle (~260 kB extra). No urgente.
+- **Estado no compartido entre pestañas (deuda de FASE 1 → resolver en FASE 3).**
+  Al navegar de Calcular a Aprender/Practicar, `CalcularPage` se desmonta y pierde todo
+  su estado (ecuación, parámetros, resultados, tabla); al volver, arranca en blanco con
+  `x^3 - 2*x - 5`. **Aceptado a propósito en Fase 1** (decisión del director): Aprender y
+  Practicar están vacías, no hay trabajo del estudiante que perder, y subir el estado es
+  refactor que no cabe en la misma fase que la navegación. **Deja de ser aceptable en
+  FASE 3**, donde `VISION_PLATAFORMA.md` §3 dice que Practicar reutiliza el gráfico y las
+  derivadas de Aprender. Arreglo previsto: subir `equation` (y lo que se comparta) a
+  `ModuloLayout` como estado del módulo, o a un contexto.
 - **Candidato a G10 (no abordado) — posible carrera en `fetchAutoParams`:** al tipear
-  rápido en la ecuación, `fetchAutoParams` ([App.jsx]) dispara un `fetch` a `/params`
+  rápido en la ecuación, `fetchAutoParams` (`pages/metodos/CalcularPage.jsx`, ex-App.jsx)
+  dispara un `fetch` a `/params`
   por cada cambio sin guarda de "último gana", así que la respuesta de una ecuación
   vieja podría pisar `autoParams`/`graphRoots` de la nueva (params/raíces rancios).
   Queda **fuera del alcance de G8** (que cubre solo el flujo de cálculo de `resolver`/

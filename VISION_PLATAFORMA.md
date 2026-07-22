@@ -4,7 +4,7 @@
 > Es complementario al CLAUDE.md, que describe el ESTADO TÉCNICO actual.
 > - CLAUDE.md responde: "¿qué está hecho y cómo está el código hoy?"
 > - VISION_PLATAFORMA.md responde: "¿qué estamos construyendo y en qué orden?"
-> Última actualización: 2026-06-17.
+> Última actualización: 2026-07-22 (nombre NumériCa + FASE 1 cerrada).
 
 ---
 
@@ -115,11 +115,18 @@ y construye sobre la anterior.
   atacaron juntos (compartían causa: realidad de raíces vía `is_real`).
 - Cimientos sólidos antes de construir encima. → **Listo para FASE 1.**
 
-**FASE 1 — Esqueleto de navegación.**
-- Estructura de la plataforma (vestíbulo) + pestañas del módulo, con react-router.
-- Las pestañas existen pero solo CALCULAR tiene contenido (ya existe). Aprender y
-  Practicar quedan como esqueleto navegable.
+**FASE 1 — Esqueleto de navegación.** ✅ CERRADA (2026-07-22)
+- Estructura de la plataforma (vestíbulo) + pestañas del módulo, con react-router **v7**.
+- Las pestañas existen pero solo CALCULAR tiene contenido (ya existía). Aprender y
+  Practicar quedan como esqueleto navegable, cada una anunciando qué vivirá ahí y
+  en qué fase (una página en blanco parece un bug).
 - Es "el edificio con sus pisos" aunque los pisos estén casi vacíos.
+- Commits `6e9eeb4` (dependencia) + `267b349` (esqueleto). Detalle técnico, rutas y
+  verificación en CLAUDE.md §5. Backend intacto (0 cambios, 152 tests sin tocar).
+- **Deuda asumida a propósito:** el estado no se comparte entre pestañas; cambiar de
+  pestaña reinicia la calculadora. Irrelevante hoy (Aprender y Practicar están vacías),
+  pero hay que resolverlo en FASE 3, donde Practicar reutiliza gráfico y derivadas.
+  → **Listo para FASE 2.**
 
 **FASE 2 — Llenar APRENDER.**
 - Teoría por método (con KaTeX) + la TELARAÑA interactiva de punto fijo como
