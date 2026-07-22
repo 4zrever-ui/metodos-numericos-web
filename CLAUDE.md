@@ -134,12 +134,17 @@ Otros: **von_mises**.
   La URL del backend se extrae a `src/api.js` para no duplicarla en dos ficheros.
 - **`vercel.json`** con rewrite SPA (`/(.*)` → `/index.html`): sin él, recargar en
   `/metodos/calcular` pide ese fichero al servidor y da 404. No aparece en `npm run dev`,
-  solo en producción. ⚠️ Está en `frontend/vercel.json` asumiendo que el *Root Directory*
-  del proyecto de Vercel es `frontend/`; si estuviera en la raíz del repo, hay que moverlo.
+  solo en producción. Va en `frontend/vercel.json` → **confirmado en vivo** tras el push:
+  recarga directa en `https://metodos-numericos-web.vercel.app/metodos/aprender` sirve la
+  app (antes del deploy daba 404), lo que además verifica empíricamente que el
+  *Root Directory* del proyecto de Vercel es `frontend/`.
 - **`index.html`:** `<title>` de "frontend" → NumériCa, `lang="es"`, meta description.
   (Cierra parte del punto 7 de la hoja de ruta.)
 - **Estilos:** `src/plataforma.css` nuevo; `App.css` **no se toca**. Reutiliza las
   variables de `index.css` → hereda claro/oscuro sin trabajo extra.
+- **Verificado EN VIVO tras el push** (https://metodos-numericos-web.vercel.app):
+  `/`, `/metodos/aprender` y `/metodos/calcular` por recarga directa, pestaña activa
+  correcta, calculadora y canvas montados, 0 errores de consola.
 - **Verificado en navegador (dev):** 5 rutas + 404, redirección de `/metodos`, pestaña
   activa, 0 errores de consola, warm-up disparando desde `/`. **Regresión de la
   calculadora:** x³−2x−5 → 2.094551482 en 3 iteraciones con teoría KaTeX y tabla;
