@@ -5,7 +5,7 @@
 > previas de CLAUDE.md). Si algo aquí contradice a otro .md viejo, manda éste.
 >
 > Claude Code lo lee automáticamente al abrir el proyecto.
-> Última actualización: 2026-07-22 (FASE 1 cerrada: esqueleto de navegación con react-router v7).
+> Última actualización: 2026-07-27 (FASE 2 en curso: paso 1, cimientos del frontend).
 
 ---
 
@@ -31,6 +31,8 @@ frontend/src/
 ├── api.js                const API (la usan la calculadora y el warm-up)
 ├── index.css             variables de tema · App.css  CSS de la calculadora
 ├── plataforma.css        CSS del esqueleto (cabecera, vestíbulo, pestañas)
+├── lib/                  (FASE 2) evalExpr.js  evaluador cliente · plotCore.js  canvas puro
+├── components/           (FASE 2) Katex.jsx
 ├── layouts/
 │   ├── PlataformaLayout.jsx   cabecera NumériCa + .app + warm-up de G5
 │   └── ModuloLayout.jsx       título del módulo + pestañas (NavLink)
@@ -153,6 +155,56 @@ Otros: **von_mises**.
   `npm run build` OK, eslint **0 errores** (2 warnings preexistentes en el código movido).
 - **Backend: cero cambios.** El front habla por URL absoluta y rutas fijas; los 152 tests
   ni se ejecutan ni se rozan.
+
+**FASE 2 — Llenar APRENDER (en curso, arrancada 2026-07-27).**
+Plan aprobado por el director: teoría de los **14 métodos** (D1) + demo interactiva
+**sólo** en punto fijo (VISION §6: una visualización perfecta antes que catorce a medias).
+Secuencia: (1) cimientos · (2) `gx_candidates` en `/params` · (3) teoría · (4) telaraña · (5) cierre.
+Decisiones tomadas antes de escribir código: **no** reconectar `CalcularPage` a los módulos
+nuevos (D2, ver deuda técnica en §7) · **sí** tocar el backend para `gx_candidates` (D3) ·
+**no** subir el estado `equation` a `ModuloLayout` todavía (D4, sigue agendado para FASE 3).
+
+Tres hallazgos del código real condicionaron ese plan (verificados, no supuestos):
+- **`gx_candidates` ya existe y se estaba tirando.** `core/auto_params.py` los genera con
+  `label`/`gp_abs`/`converges`/`latex`/`expr` y los ordena poniendo los convergentes primero,
+  pero `/params` sólo devolvía el ganador (`gx`). Es justo el material de la lección de la
+  telaraña: misma ecuación, dos g(x), una converge y otra escapa. → paso 2.
+- **`formula_description` es texto Unicode, no LaTeX** (`"xₙ₊₁ = xₙ − f(xₙ) / f'(x₀)"`). El
+  backend sólo da LaTeX **por ecuación** (`f`/`f'`/`f''`/`gx_latex`), nunca **por método**.
+  ⇒ la teoría de Aprender es un catálogo estático escrito en el frontend; no se le pide al
+  backend nada que no tenga.
+- **`punto_fijo.py` se NIEGA a iterar si |g′(x₀)| ≥ 1** (`_check_applicability` devuelve
+  `applicable:false` con `iterations:[]`). Correcto para una calculadora, inservible para
+  enseñar: la telaraña divergente es media lección. ⇒ **la telaraña itera g(x) en el cliente**,
+  no consume `/method/punto_fijo`. Ese gate NO se toca (es motor matemático con tests).
+- **`FunctionGraph` no se reutiliza, y por matemática, no por código:** usa escalas X/Y
+  independientes (arreglo de G1, correcto para f). En un cobweb eso es veneno: con
+  scaleX ≠ scaleY la recta y = x deja de verse a 45° y se pierde toda la intuición del rebote.
+  La telaraña necesita escala **isométrica** — requisito opuesto al de G1, no un flag.
+
+**Paso 1 — cimientos (2026-07-27, commit pendiente en el momento de escribir esto).**
+Tres archivos NUEVOS; **cero archivos existentes tocados** (verificado con `git status`):
+- `src/lib/evalExpr.js` — evaluador de expresiones → `(x)=>number`, con caché. Traduce en
+  **una sola pasada con tabla de nombres**: encadenar `.replace()` por función es una trampa
+  en cuanto dos nombres comparten destino (`Abs` y `abs` → `Math.abs` daba `Math.Math.abs`).
+  Entiende lo que imprime SymPy (`Abs`, `sqrt`, `exp`, `log`, `E`) y `cbrt`, que `evalF` no.
+  Distingue **no compila** (`null`, expresión ininteligible) de **NaN** (fuera de dominio):
+  la telaraña necesita decir "no supe leer tu g(x)" y "g(x) se escapó" con mensajes distintos.
+  Lleva una **lista blanca de nombres antes de `new Function`**: tras traducir, el único
+  identificador que puede quedar es `x` (es guarda de UX, no un sandbox).
+- `src/lib/plotCore.js` — `makeTransform`, `niceStep`, `formatTick`, `gridLines`, **`isoView`**
+  (encuadre isométrico, la pieza que garantiza la diagonal a 45°) y **`getPlotPalette`**, que
+  lee las variables CSS del tema. La telaraña nace clara/oscura, y ese `getPlotPalette` es lo
+  que el pendiente 5 (canvas de Calcular hardcodeado en oscuro) reutilizará en vez de
+  resolverse dos veces.
+- `src/components/Katex.jsx` — copia compartible del `Katex` privado de `CalcularPage`.
+- **Verificación:** batería propia de **52/52** casos (los reales de la app, la salida de SymPy,
+  la notación del alumno, dominio vs expresión inválida, y la no-regresión del doble mapeo).
+  ESLint **0 errores / 0 warnings**. `npm run build` OK.
+- **Incidente, cazado por el linter:** la primera versión apartaba los literales en notación
+  científica detrás de marcadores y coló **4 bytes NUL** dentro de dos regex (`no-control-regex`).
+  Reescrito sin esa maquinaria: ahora la multiplicación implícita comprueba si la letra es la
+  `e` de un exponente y la respeta. Sin ese arreglo `1e-5` se evaluaba como `1*e-5` ≈ −2.28.
 
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
@@ -312,6 +364,16 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
   FASE 3**, donde `VISION_PLATAFORMA.md` §3 dice que Practicar reutiliza el gráfico y las
   derivadas de Aprender. Arreglo previsto: subir `equation` (y lo que se comparta) a
   `ModuloLayout` como estado del módulo, o a un contexto.
+- **Migración de `CalcularPage` a `lib/evalExpr.js` y `components/Katex.jsx` (FASE 2, paso 1).**
+  `CalcularPage` conserva su `evalF` y su `Katex` privados; los módulos nuevos son hermanos,
+  no reemplazos. **Decisión del director (D2):** ese archivo carga 9 bugs cerrados y
+  verificados en vivo (G1–G9) y migrarlo no aporta nada a la telaraña. Hacerlo **aislado**,
+  con su propia batería de regresión (G1: `sin(x)-0.5` encuadra al 77% del alto; G3: cambiar
+  ecuación limpia resultados), cuando no compita con una feature nueva. Mientras tanto
+  conviven dos evaluadores y dos `Katex` de 9 líneas. **Ojo: `evalExpr` NO es idéntico a
+  `evalF`** — entiende `Abs`/`cbrt` y protege la notación científica, cosas que `evalF` no
+  hace; la migración es una mejora de comportamiento, no un movimiento literal, y por eso
+  necesita su propia verificación.
 - **Candidato a G10 (no abordado) — posible carrera en `fetchAutoParams`:** al tipear
   rápido en la ecuación, `fetchAutoParams` (`pages/metodos/CalcularPage.jsx`, ex-App.jsx)
   dispara un `fetch` a `/params`
