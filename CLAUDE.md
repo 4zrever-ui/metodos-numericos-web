@@ -168,7 +168,7 @@ Otros: **von_mises**.
 1. **Verificar contra el código real antes de afirmar que algo es un bug.** En la asesoría,
    dos "bugs" supuestos (x=1, fallo de auto_params) resultaron falsos al ejecutar.
 2. **No instalar MathQuill/MathLive.** Se usa el normalizador ligero `mathNotation.js`.
-3. **No tocar el motor matemático sin tests.** Mantener 147/147.
+3. **No tocar el motor matemático sin tests.** Mantener 152/152.
 4. **`npm run build` antes de entregar cambios de frontend.**
 5. **Cold start de Render:** todo fetch nuevo contempla retry + aviso al usuario.
 6. **`amburger.xlsx` = fuente de verdad** para formato y fórmulas de Excel.
