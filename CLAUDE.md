@@ -473,6 +473,45 @@ no cambiaba; se confirmó pidiendo el módulo al propio servidor
 fecha del fichero. **Riesgo real:** una verificación en navegador puede estar validando código
 viejo sin avisar. Ante un cambio que "no se ve", comprobar primero que el servidor lo sirve.
 
+**Jerarquía visual de la telaraña (2026-07-28, revisión del director en vivo).** Principio que
+fija el director: **g(x) es el protagonista**; diagonal, escalera, marcadores y etiquetas la
+acompañan sin taparla ni competir con ella. Dos cambios, ningún CSS nuevo:
+- **La etiqueta del punto fijo pasa a ser a demanda.** Antes estaba siempre visible y tapaba la
+  escalera justo donde converge, que es lo que hay que leer. Ahora, por defecto, sólo el disco;
+  la caja aparece al señalar el marcador (cursor `pointer`, disco algo mayor) y se puede
+  **clavar con un clic** para no tener que sostener el ratón. Mismo patrón que el rótulo de g(x)
+  del cambio anterior. En la detección **el marcador manda sobre la curva**: está justo encima
+  de ella, así que comprobar la curva primero lo haría inseñalable.
+- **Botón "Ajustar vista"** (no zoom con rueda: eso sigue aplazado a FASE 4, §7). Reutiliza la
+  lógica de límites que ya existía, aplicada a un subconjunto de puntos. El rango sigue siendo
+  **el mismo en X y en Y**, así que `isoView` deriva un `scale` único y **la isometría es
+  estructural**, no una comprobación que se pueda olvidar. Se reinicia al cambiar g(x), x₀ o
+  ecuación (familia de G3: estaba ceñido a una órbita que ya no existe).
+
+**Corrección del diagnóstico de partida (queda escrito porque la medición desmintió a los dos).**
+El síntoma se describió como *"toda la escalera se amontona en una esquina diminuta"*. Medido,
+**la órbita ya ocupaba el 62–82 % del alto**: no era eso. Lo que sí resultaba invisible eran
+**los últimos pasos** de las convergencias cerradas, sub-píxel con el encuadre completo. El
+botón los amplía **47× a 87×**:
+
+| Caso | Órbita antes | Con "Ajustar vista" |
+|---|---|---|
+| `cbrt(2x+5)` convergente cerrado | 38 % × 82 % | **69 % × 69 %** |
+| `cos(x)` oscilante | 37 % × 62 % | **56 % × 84 %** |
+| `(x³−5)/2` divergente | 37 % × 82 % | 40 % × 85 % |
+
+**Por qué el criterio se bifurca cola/cabeza.** "Encuadrar donde converge la órbita" sólo
+funciona si la órbita converge. En la divergente la cola está en el infinito: aplicar el
+criterio literal daba un span de **8.9e8** —alejarse ocho órdenes de magnitud, peor que no
+tocar nada—. Así que: **cola** (segunda mitad de la órbita) si convergió; **cabeza** (los
+primeros 4 pasos, cuando todavía está junto al punto fijo y se la ve empezar a huir) si escapó
+o entró en ciclo. Por eso la fila divergente de la tabla apenas cambia: es lo correcto.
+
+Verificado en claro y en oscuro, con la secuencia completa de la etiqueta (reposo oculta →
+señalar aparece → alejarse desaparece → clavar persiste → clic fuera desaparece, 0 píxeles
+residuales) y los tres casos del botón. Baterías 52/52, 35/35, 60/60, 14/14. ESLint `src`
+0 errores, `npm run build` OK (JS 551→555 kB).
+
 **Limitación de la verificación (importante):** **no hay capturas de pantalla** de ninguna
 parte de FASE 2. El panel del navegador debe estar visible para que la página componga frames
 y no lo estaba, así que todo lo anterior es **medición del DOM y de los píxeles del canvas**,

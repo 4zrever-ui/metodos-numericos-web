@@ -54,6 +54,10 @@ export default function CobwebGraph() {
   // en las órbitas largas (30 de 60 trazos) sin que nada fallara a la vista.
   const [paso, setPaso] = useState(null);
   const [animando, setAnimando] = useState(false);
+  const [vistaAjustada, setVistaAjustada] = useState(false);
+  // La etiqueta del punto fijo se puede dejar clavada con un clic, para no tener
+  // que sostener el ratón encima mientras se mira la escalera.
+  const [etiquetaClavada, setEtiquetaClavada] = useState(false);
 
   const canvasRef = useRef(null);
 
@@ -134,7 +138,7 @@ export default function CobwebGraph() {
 
   // Un mismo rango para X e Y: así la diagonal y = x es literalmente la
   // diagonal del recuadro, y el ojo la reconoce sin pensar.
-  const rango = useMemo(() => {
+  const rangoCompleto = useMemo(() => {
     const vals = [];
     if (x0Valido) vals.push(x0);
     if (preset && Number.isFinite(preset.raiz)) vals.push(preset.raiz);
@@ -155,6 +159,48 @@ export default function CobwebGraph() {
     const margen = (hi - lo) * 0.18;
     return { lo: lo - margen, hi: hi + margen };
   }, [orbita, preset, x0, x0Valido]);
+
+  /**
+   * Encuadre "ajustado": se ciñe al tramo donde pasa lo interesante, en vez de
+   * a la trayectoria entera. Es la misma lógica de límites de arriba aplicada a
+   * un subconjunto de puntos — no un zoom nuevo, y sigue siendo isométrico
+   * porque el rango es el mismo en X y en Y (`isoView` deriva un `scale` único).
+   *
+   * El tramo depende de qué hizo la órbita, y esto NO es un detalle:
+   *  - si CONVERGIÓ, interesa la COLA, donde se asienta. En una convergencia
+   *    cerrada los últimos pasos son sub-píxel con el encuadre completo; aquí
+   *    pasan a ocupar ~68 % del alto (medido: 47× a 87× de aumento).
+   *  - si ESCAPÓ o entró en CICLO, la cola está en el infinito y ceñirse a ella
+   *    sería alejarse ocho órdenes de magnitud (medido: span 8.9e8). En ese caso
+   *    interesa la CABEZA: los primeros pasos, cuando la órbita todavía está
+   *    junto al punto fijo y se la ve empezar a huir.
+   */
+  const rangoAjustado = useMemo(() => {
+    const finitos = orbita.points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.gx));
+    if (finitos.length === 0) return null;
+
+    const tramo = orbita.status === "convergió"
+      ? finitos.slice(Math.max(0, finitos.length - Math.max(3, Math.ceil(finitos.length / 2))))
+      : finitos.slice(0, Math.min(4, finitos.length));
+
+    const vals = tramo.flatMap((p) => [p.x, p.gx]);
+    if (puntoFijo !== null && Number.isFinite(puntoFijo)) vals.push(puntoFijo);
+
+    let lo = Math.min(...vals);
+    let hi = Math.max(...vals);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+    if (hi - lo < 1e-9) {
+      // La órbita ya no se mueve: se abre una ventana mínima alrededor del punto
+      // para no acabar con un rango de anchura cero.
+      const centro = (lo + hi) / 2;
+      const radio = Math.max(Math.abs(centro), 1) * 0.05;
+      lo = centro - radio; hi = centro + radio;
+    }
+    const margen = (hi - lo) * 0.12;
+    return { lo: lo - margen, hi: hi + margen };
+  }, [orbita, puntoFijo]);
+
+  const rango = vistaAjustada && rangoAjustado ? rangoAjustado : rangoCompleto;
 
   // ── Dibujo ────────────────────────────────────────────────────────────────
 
@@ -294,15 +340,20 @@ export default function CobwebGraph() {
       ctx.fill();
       ctx.globalAlpha = 1;
 
+      const señalado = hoverRef.current?.tipo === "punto" || etiquetaClavada;
+
       ctx.beginPath();
-      ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
+      ctx.arc(sx, sy, señalado ? 6.5 : 5.5, 0, Math.PI * 2);
       ctx.fillStyle = pal.accent;
       ctx.fill();
       ctx.strokeStyle = pal.textStrong;
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      etiqueta(`punto fijo  x* = ${r.toFixed(4)}`, sx, sy, pal.accent, "derecha");
+      // La etiqueta sólo aparece si se la pide: siempre visible tapaba la
+      // escalera justo donde converge, que es la parte que hay que leer.
+      // Mismo trato que el rótulo de g(x): discreto por defecto, a demanda.
+      if (señalado) etiqueta(`punto fijo  x* = ${r.toFixed(4)}`, sx, sy, pal.accent, "derecha");
     }
 
     // La telaraña
@@ -341,7 +392,7 @@ export default function CobwebGraph() {
     // Rótulo de la curva bajo el cursor: dice QUÉ g(x) se está mirando y en qué
     // punto, que es la pregunta que uno se hace al pasar el ratón por encima.
     const hover = hoverRef.current;
-    if (hover && g) {
+    if (hover?.tipo === "curva" && g) {
       const sx = toScreenX(hover.x), sy = toScreenY(hover.y);
       ctx.beginPath();
       ctx.arc(sx, sy, 4, 0, Math.PI * 2);
@@ -352,7 +403,7 @@ export default function CobwebGraph() {
       ctx.stroke();
       etiqueta(`g(x) = ${gxNorm}   (${hover.x.toFixed(3)}, ${hover.y.toFixed(3)})`, sx, sy, pal.accent);
     }
-  }, [vistaDe, rango, gxNorm, orbita, segmentos, pasoVisible, puntoFijo, x0, x0Valido]);
+  }, [vistaDe, rango, gxNorm, orbita, segmentos, pasoVisible, puntoFijo, etiquetaClavada, x0, x0Valido]);
 
   useEffect(() => { dibujar(); }, [dibujar]);
 
@@ -436,7 +487,14 @@ export default function CobwebGraph() {
 
   // Los reinicios van en los manejadores, no en un efecto: cambiar de g(x) o de
   // x₀ es una acción del alumno, no una sincronización con nada externo.
-  const reiniciar = () => { setPaso(null); setAnimando(false); };
+  // Al cambiar de g(x), de x₀ o de ecuación, la vista ajustada deja de tener
+  // sentido: estaba ceñida a una órbita que ya no existe. Misma familia que G3.
+  const reiniciar = () => {
+    setPaso(null);
+    setAnimando(false);
+    setVistaAjustada(false);
+    setEtiquetaClavada(false);
+  };
 
   const cambiarEcuacion = (i) => {
     setIdxEc(i);
@@ -458,19 +516,29 @@ export default function CobwebGraph() {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const { toMathX, toScreenY } = makeTransform(vistaDe(canvas.clientWidth, canvas.clientHeight));
+    const { toMathX, toScreenX, toScreenY } = makeTransform(vistaDe(canvas.clientWidth, canvas.clientHeight));
 
     let nuevo = null;
-    if (g) {
+
+    // El marcador manda sobre la curva: está justo encima de ella, así que si
+    // se comprobara la curva primero nunca se podría señalar el punto fijo.
+    if (puntoFijo !== null) {
+      const dx = toScreenX(puntoFijo) - mx;
+      const dy = toScreenY(puntoFijo) - my;
+      if (Math.sqrt(dx * dx + dy * dy) <= 12) nuevo = { tipo: "punto" };
+    }
+
+    if (!nuevo && g) {
       const x = toMathX(mx);
       const y = g(x);
-      if (Number.isFinite(y) && Math.abs(toScreenY(y) - my) <= 12) nuevo = { x, y };
+      if (Number.isFinite(y) && Math.abs(toScreenY(y) - my) <= 12) nuevo = { tipo: "curva", x, y };
     }
 
     const antes = hoverRef.current;
     if (antes === null && nuevo === null) return;
+    if (antes && nuevo && antes.tipo === nuevo.tipo && antes.x === nuevo.x) return;
     hoverRef.current = nuevo;
-    canvas.style.cursor = nuevo ? "crosshair" : "default";
+    canvas.style.cursor = nuevo?.tipo === "punto" ? "pointer" : nuevo ? "crosshair" : "default";
     dibujar();
   };
 
@@ -478,6 +546,12 @@ export default function CobwebGraph() {
     if (hoverRef.current === null) return;
     hoverRef.current = null;
     dibujar();
+  };
+
+  // Clic sobre el marcador: deja la etiqueta clavada (o la suelta).
+  const alPulsarLienzo = () => {
+    if (hoverRef.current?.tipo === "punto") setEtiquetaClavada((v) => !v);
+    else if (etiquetaClavada) setEtiquetaClavada(false);
   };
 
   const alternarAnimacion = () => {
@@ -573,6 +647,7 @@ export default function CobwebGraph() {
         style={{ height: ALTO_LIENZO }}
         onMouseMove={alMoverRaton}
         onMouseLeave={alSalirRaton}
+        onClick={alPulsarLienzo}
       />
 
       <div className="cobweb-pasos">
@@ -582,6 +657,14 @@ export default function CobwebGraph() {
         </button>
         <button type="button" onClick={() => { setAnimando(false); setPaso(Math.min(totalPasos, pasoVisible + 1)); }} disabled={pasoVisible >= totalPasos}>▶</button>
         <button type="button" onClick={() => { setAnimando(false); setPaso(0); }}>⟲</button>
+        <button
+          type="button"
+          onClick={() => setVistaAjustada((v) => !v)}
+          disabled={!rangoAjustado}
+          title="Encuadra el tramo donde pasa lo interesante, manteniendo la escala isométrica"
+        >
+          {vistaAjustada ? "Vista completa" : "Ajustar vista"}
+        </button>
         <span className="cobweb-contador">
           {totalPasos ? `${pasoVisible} / ${totalPasos} trazos` : "sin órbita"}
         </span>
