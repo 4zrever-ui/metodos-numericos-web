@@ -4,7 +4,7 @@
 > Es complementario al CLAUDE.md, que describe el ESTADO TÉCNICO actual.
 > - CLAUDE.md responde: "¿qué está hecho y cómo está el código hoy?"
 > - VISION_PLATAFORMA.md responde: "¿qué estamos construyendo y en qué orden?"
-> Última actualización: 2026-07-22 (nombre NumériCa + FASE 1 cerrada).
+> Última actualización: 2026-07-27 (FASE 2 cerrada: Aprender con teoría y telaraña).
 
 ---
 
@@ -70,6 +70,10 @@ niveles de dominio creciente.
     detalle por el autor; es el cobweb plot canónico, herramienta estándar para
     enseñar convergencia de punto fijo). Si esta funciona y se ve bien, se vuelve
     la plantilla para adaptar a los demás tipos.
+    **✅ CONSTRUIDA en FASE 2.** Lo que deja como plantilla reutilizable: escala
+    isométrica (obligatoria para que la diagonal se vea a 45°), iteración en
+    cliente (el backend no devuelve trayectorias que divergen), la divergencia
+    dibujada y explicada, paso a paso con animación, y la paleta que sigue al tema.
 
 ### PRACTICAR — "constrúyelo tú mismo"
 - Objetivo: que el estudiante aprenda a **construir las fórmulas paso a paso**,
@@ -128,12 +132,42 @@ y construye sobre la anterior.
   pero hay que resolverlo en FASE 3, donde Practicar reutiliza gráfico y derivadas.
   → **Listo para FASE 2.**
 
-**FASE 2 — Llenar APRENDER.**
-- Teoría por método (con KaTeX) + la TELARAÑA interactiva de punto fijo como
-  prueba de concepto. Si funciona y se ve bien, plantilla para las demás.
+**FASE 2 — Llenar APRENDER.** ✅ CERRADA (2026-07-27)
+- **Teoría de los 14 métodos**, con las fórmulas en KaTeX: qué hace cada uno, con
+  qué recurrencia itera, qué condición necesita y a qué velocidad converge.
+  Agrupados por las cinco familias, con la ficha completa a la vista.
+- **La TELARAÑA de punto fijo, interactiva y viva**: el estudiante elige la
+  ecuación, prueba distintos reordenamientos g(x) —o escribe el suyo—, mueve x₀ y
+  ve la escalera avanzar paso a paso. La prueba de concepto que pedía §3 **funciona
+  y ya es la plantilla** para las demás familias en FASE 4.
+- **La lección se ve, no se enuncia:** la misma ecuación con tres g(x) distintas,
+  una que atrae y dos que repelen, con su |g′| medido en pantalla. La divergencia
+  se dibuja y se explica en vez de esconderse — que es justo lo que la calculadora
+  no puede hacer, porque se niega a iterar cuando no hay garantía de convergencia.
+- **Tres fichas dicen la verdad incómoda:** punto fijo, Newton 2º orden y Ostrowsky
+  llevan un apartado "En este proyecto" que reconoce ante el alumno dónde la
+  implementación se aparta de lo canónico. Una herramienta académica que esconde
+  eso enseña mal.
+- **Backend: cero cambios.** Una decisión planeada de tocarlo se revirtió al medir
+  que su premisa era falsa; los 152 tests no se ejecutaron porque nada los roza.
+- Detalle técnico, commits, hallazgos y bugs (G11, G12) en CLAUDE.md §5.
+- **Salvedad honesta:** toda la fase se verificó por medición del DOM y de los
+  píxeles del lienzo, **sin una sola captura de pantalla**. Está comprobado *qué* se
+  dibuja y *dónde*; el juicio estético sigue siendo del autor. → **Listo para FASE 3.**
 
 **FASE 3 — Llenar PRACTICAR.**
 - El constructor de fórmulas simulado + gráfico + derivadas/g(x) mostrados.
+- **Deja de ser aplazable la deuda de FASE 1:** hoy cada pestaña tiene su propio
+  estado y cambiar de pestaña reinicia la calculadora. Era irrelevante mientras
+  Aprender y Practicar estaban vacías; con Practicar reutilizando gráfico y
+  derivadas (§3), el estudiante perdería su trabajo al navegar. Hay que subir la
+  ecuación a estado del módulo antes de construir encima.
+- **Lo que FASE 2 deja hecho y Practicar hereda:** el evaluador de expresiones en
+  cliente, el motor de iteración, el lienzo con paleta de tema y el catálogo de
+  teoría. Practicar no arranca de cero: arranca de esas piezas.
+- **Decisión pendiente antes de empezar:** de dónde salen los ejercicios. El banco
+  rotativo por fecha (§3) es pieza de fase posterior, así que la primera versión
+  necesita un conjunto fijo y curado, como se hizo con los g(x) de la telaraña.
 
 **FASE 4 — Expansión.**
 - Otras visualizaciones (bisección, Newton...), ejercicios semanales rotativos,
