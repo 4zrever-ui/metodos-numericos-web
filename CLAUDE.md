@@ -5,7 +5,7 @@
 > previas de CLAUDE.md). Si algo aquí contradice a otro .md viejo, manda éste.
 >
 > Claude Code lo lee automáticamente al abrir el proyecto.
-> Última actualización: 2026-07-27 (FASE 2 en curso: paso 1, cimientos del frontend).
+> Última actualización: 2026-07-27 (FASE 2 en curso: pasos 1–2; D3 revertida, backend intacto).
 
 ---
 
@@ -31,7 +31,9 @@ frontend/src/
 ├── api.js                const API (la usan la calculadora y el warm-up)
 ├── index.css             variables de tema · App.css  CSS de la calculadora
 ├── plataforma.css        CSS del esqueleto (cabecera, vestíbulo, pestañas)
-├── lib/                  (FASE 2) evalExpr.js  evaluador cliente · plotCore.js  canvas puro
+├── lib/                  (FASE 2) evalExpr.js evaluador cliente · plotCore.js canvas puro
+│                                  fixedPoint.js  |g′|, órbitas y segmentos de la telaraña
+├── content/              (FASE 2) gxPresets.js  ecuaciones de ejemplo con sus g(x)
 ├── components/           (FASE 2) Katex.jsx
 ├── layouts/
 │   ├── PlataformaLayout.jsx   cabecera NumériCa + .app + warm-up de G5
@@ -206,6 +208,50 @@ Tres archivos NUEVOS; **cero archivos existentes tocados** (verificado con `git 
   Reescrito sin esa maquinaria: ahora la multiplicación implícita comprueba si la letra es la
   `e` de un exponente y la respeta. Sin ese arreglo `1e-5` se evaluaba como `1*e-5` ≈ −2.28.
 
+**Paso 2 — REDISEÑADO: D3 queda REVERTIDA, el backend no se toca (2026-07-27).**
+El paso 2 iba a exponer `gx_candidates` en `/params` (D3, aprobada). Al ir a escribirlo se
+verificó primero el contenido real del campo (regla 1) y **la premisa era falsa**:
+
+| Ecuación | nº candidatos | g(x) | \|g′\| | ¿converge? |
+|---|---|---|---|---|
+| x³−2x−5 | 1 | x − f/f′ | 0.0 | sí |
+| cos(x)−x | 1 | x − f/f′ | 0.0 | sí |
+| x³−4x+1 | 1 | x − f/f′ | 0.0 | sí |
+| x²−4x+5 | 0 | — | — | — |
+
+`_generate_gx_candidates` ([auto_params.py:124]) anuncia estrategias en su docstring pero
+**sólo implementó la S1** (`x − f(x)/f'(x)`). Nunca hay dos candidatos, y el único que hay
+converge siempre por construcción (|g′| = 0 en la raíz). El contraste "una g converge y otra
+escapa" —la lección entera de la telaraña— **no existe en esos datos**, así que exponerlos
+habría añadido un array de un elemento que duplica el `gx` que `/params` ya devuelve.
+**Decisión del director: abandonar el cambio de backend e ir por presets.** Backend intacto,
+152 tests sin ejecutar siquiera. (De la misma verificación salió el hallazgo H1, ver §7.)
+
+Lo construido en su lugar (dos archivos NUEVOS, cero existentes tocados):
+- `src/lib/fixedPoint.js` — `derivativeAt` (diferencia central con paso escalado a |x|),
+  `analyzeG` (**mide** |g′| y dice si el punto fijo atrae), `iterateG` (órbita completa con
+  estados `convergió` / `escapó` / `sin-cerrar` / `no-compila`) y `cobwebPath` (la órbita
+  convertida en los segmentos vertical/horizontal de la telaraña). **Itera en el cliente**,
+  no vía `/method/punto_fijo`, porque ese endpoint devuelve `iterations: []` cuando
+  |g′(x₀)| ≥ 1 y la trayectoria divergente es justo la que hay que dibujar.
+  Los defaults (`tol` 1e-7 absoluta, `maxIter` 60) son **de dibujo, no de cálculo**: con
+  convergencia lineal (|g′| ≈ 0.67) hacen falta ~40 iteraciones para 7 cifras, y cortar antes
+  etiquetaba como "sin cerrar" órbitas visiblemente pegadas al punto fijo.
+- `src/content/gxPresets.js` — 4 ecuaciones con sus reordenamientos. El caso canónico es
+  x³−2x−5 con tres g: `cbrt(2x+5)` (|g′| = 0.152, atrae), `(x³−5)/2` (6.58, repele) y
+  `5/(x²−2)` (3.68, repele). Además `cos(x)` y `e^(−x)` (|g′| < 0 → espiral en vez de
+  escalera) y x²−3x+2 con UNA sola g que atrae a la raíz 1 y repele a la 2.
+  **Ninguna nota afirma quién converge:** las `nota` describen el álgebra del despeje y el
+  veredicto lo mide `analyzeG` sobre la g real. La página no puede mentir aunque yo me
+  equivoque al curar.
+- **Verificación: 35/35** casos propios — derivada numérica contra derivadas conocidas,
+  integridad de los presets (`f(raíz) ≈ 0` y `g(raíz) = raíz` en los 6), el contraste
+  convergente/divergente, órbitas que convergen y que escapan, casos degenerados
+  (g inválida, x₀ no finito, fuera de dominio) y la forma de `cobwebPath`. ESLint 0/0,
+  `npm run build` OK. (La batería del paso 1 sigue en 52/52.)
+- Detalle: los módulos de `lib/` se importan **con extensión `.js`** (el resto del proyecto la
+  omite). Vite la resuelve igual, y así se pueden probar con `node` a secas sin runner.
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
   pero con fondo oscuro hardcodeado.
@@ -351,6 +397,32 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
     nuevo; backend de Render compatible y verificado en vivo. (PR no aplica: trabajo directo en `main`.)
 
 **Fuera de alcance explícito:** hoja Resumen (C4).
+
+**Hallazgos abiertos (con entrada propia, fase por decidir — NO son deuda técnica):**
+
+- **H1 — El "Punto Fijo" automático es Newton disfrazado.** Medido el 2026-07-27 contra el
+  backend local, al verificar la premisa de D3:
+  ```
+  g(x) automática de x³−2x−5  =  (2x³+5)/(3x²−2)      ← es exactamente x − f/f′
+  Punto Fijo → 3 iteraciones, raíz 2.0945514815423265
+  Newton     → 3 iteraciones, raíz 2.0945514815423265   (idéntica hasta el último dígito)
+  ```
+  **Causa:** `_generate_gx_candidates` ([auto_params.py:124]) sólo implementa la estrategia
+  S1 = `x − f(x)/f'(x)`, y `generate_params` toma el mejor candidato → siempre esa.
+  **Consecuencias:** (a) el alumno elige "Punto Fijo" y recibe la iteración de Newton;
+  (b) el criterio |g′| < 1, que es TODA la enseñanza del método, nunca se pone a prueba,
+  porque |g′(r)| = 0 por construcción; (c) el cobweb con la g automática converge de golpe,
+  sin escalera ni espiral — el menos ilustrativo posible. Medido en punto_fijo; **por
+  construcción afecta también a Aitken y Steffensen**, los otros dos que consumen `gx`
+  (según la nota de G6), aunque eso NO se ha medido todavía.
+  **No es un error de cálculo:** es un punto fijo legítimo y la raíz que da es correcta.
+  **Estado: no tocado, sin fase asignada** (decisión del director, 2026-07-27: registrarlo
+  aparte para poder decidir su fase por separado, no diluido entre los pendientes).
+  **Para decidir hace falta** contrastar contra `amburger.xlsx` qué g(x) usa su hoja de
+  Punto Fijo: si usa un reordenamiento clásico, esto es una desviación de la fuente de
+  verdad (regla 6.6) y pasa a ser bug; si no, es comportamiento aceptado y se documenta.
+  **Reproducir:** `generate_params(parse_equation('x**3 - 2*x - 5')).gx_sympy` desde la raíz
+  del repo. Tocarlo implica motor matemático + plantillas de Excel + los 152 tests.
 
 **Deuda técnica:**
 - Optimización futura: cargar KaTeX de forma diferida (lazy load) para recuperar el
