@@ -624,9 +624,51 @@ VISION §3 da por reutilizable este gráfico en Practicar, pero era **privado** 
   verificación (5173 sin responder). Se levantó uno con `.claude/launch.json` —conservado en
   FASE 2 justo para esto— y se repitió la medición completa.
 
+**Paso 2b — el gráfico deja de ser una caja oscura fija (2026-07-28).**
+Cierra el **pendiente 5** de la hoja de ruta ("canvas del gráfico adaptable claro/oscuro"),
+abierto desde antes de FASE 1.
+- Los **17 colores cableados** salen de la paleta del tema vía `getPlotPalette` (la misma
+  función que estrenó la telaraña en FASE 2, paso 1 — para eso se escribió). Rejilla, marcas
+  y ejes se derivan del color de texto con **distinta opacidad** (0.22 / 0.6 / 1), así la
+  jerarquía se mantiene en los dos temas sin elegir seis colores a mano. La curva usa el
+  acento: f(x) es la protagonista, mismo principio que el director fijó para la telaraña.
+  Las pastillas de las etiquetas pasan a ser del color del FONDO, y el anillo del disco de
+  raíz también (antes era blanco fijo, que en tema claro desaparecía).
+- **Un solo color queda fijo:** el rojo de las raíces (`#e0555a`), igual que el de la órbita
+  que escapa en el cobweb. "Aquí está la raíz" no es una idea que cambie con el tema.
+- Borde del contenedor, texto de ayuda y botones pasan a `var(--border)` / `var(--text)` /
+  `var(--bg)`, que ya siguen al tema solos.
+- Repintado al cambiar de tema con `matchMedia` + `focus` + `visibilitychange`, el mismo
+  patrón —y por la misma razón— que `CobwebGraph`.
+
+**Cómo se midió G1 sin depender del color** (el método anterior buscaba los píxeles `#a78bfa`,
+que ya no existen). Ahora se clasifica **pinta / no pinta** contra el fondo del tema y se
+descartan las filas y columnas cubiertas de lado a lado, que son la rejilla y los ejes; lo que
+queda es el trazo. Con eso, **el encuadre es idéntico en los dos temas**:
+
+| Ecuación | Oscuro | Claro | Máscara de píxeles pintados |
+|---|---|---|---|
+| `sin(x)-0.5` | 78 % × 100 % | 78 % × 100 % | **99.77 %** coincidente |
+| `tan(x)-x` | 83 % × 100 % | 83 % × 100 % | **99.39 %** |
+| `x³−2x−5` | 78 % × 100 % | 78 % × 100 % | **99.97 %** |
+
+La comparación de máscaras es la prueba fuerte: **las mismas posiciones se pintan en los dos
+temas**, y lo que difiere (0.03–0.6 %) es el antialiasing de bordes y pastillas. Fondo del
+lienzo: `rgb(22,23,29)` en oscuro y `rgb(255,255,255)` en claro — **ya no es una caja oscura
+sobre página blanca**.
+
+**Salvedad honesta sobre los números:** la métrica posicional da 78 % donde la de color daba
+77 %, porque cuenta también marcas de eje y pastillas cercanas al trazo. **No es la misma
+métrica y no debe compararse con el baseline histórico**; para eso está la medición del paso
+2a, hecha con la métrica original ANTES de tocar la paleta. Ésta sirve para lo que sí prueba:
+que el tema no mueve nada.
+
+Consola 0 errores (con búfer limpio; los `Failed to reload` que aparecieron eran entradas
+viejas del momento de editar el archivo — **tercera vez que pasa**, ver la nota de método del
+paso 1). ESLint 0 errores, `npm run build` OK.
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
-- Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
-  pero con fondo oscuro hardcodeado.
+- ~~Canvas del gráfico adaptable claro/oscuro~~ — ✅ **HECHO en FASE 3, paso 2b** (2026-07-28).
 - Aviso de "raíz exacta" (cuando x₀ ya es la raíz, iters=0).
 - Barra de símbolos rápidos (π, √, x², ÷, ×) — el normalizador ya cubre la notación,
   faltan los botones.

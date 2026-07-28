@@ -1,5 +1,7 @@
 import React from "react";
 
+import { getPlotPalette } from "../lib/plotCore.js";
+
 /**
  * Grafico interactivo de f(x) con auto-encuadre, zoom y arrastre.
  *
@@ -91,8 +93,16 @@ function FunctionGraph({ equation, roots = [] }) {
 
     ctx.clearRect(0, 0, W, H);
 
+    // Paleta del tema (paso 2b). Se lee en cada dibujo, no se cachea: cambiar de
+    // claro a oscuro no remonta el componente, sólo cambia las variables CSS.
+    const pal = getPlotPalette(canvas);
+    // El rojo de las raíces es el ÚNICO color fijo, igual que el de la órbita que
+    // escapa en la telaraña: "aquí está la raíz" no es una idea que cambie con el
+    // tema, y este tono se lee sobre los dos fondos.
+    const ROJO = "#e0555a";
+
     // Background
-    ctx.fillStyle = "#1a1a2e";
+    ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
 
     const toScreenX = (x) => ox + x * scaleX;
@@ -116,7 +126,11 @@ function FunctionGraph({ equation, roots = [] }) {
     const gridStepX = niceStep(scaleX);
     const gridStepY = niceStep(scaleY);
 
-    ctx.strokeStyle = "#353560";
+    // Rejilla, marcas y ejes se derivan del color de texto con distinta opacidad:
+    // así la jerarquía (rejilla < marcas < ejes) se mantiene en los dos temas sin
+    // elegir seis colores a mano.
+    ctx.strokeStyle = pal.text;
+    ctx.globalAlpha = 0.22;
     ctx.lineWidth = 1;
     for (let gx = Math.ceil(xMin / gridStepX) * gridStepX; gx <= xMax; gx += gridStepX) {
       ctx.beginPath(); ctx.moveTo(toScreenX(gx), 0); ctx.lineTo(toScreenX(gx), H); ctx.stroke();
@@ -124,9 +138,11 @@ function FunctionGraph({ equation, roots = [] }) {
     for (let gy = Math.ceil(yMin / gridStepY) * gridStepY; gy <= yMax; gy += gridStepY) {
       ctx.beginPath(); ctx.moveTo(0, toScreenY(gy)); ctx.lineTo(W, toScreenY(gy)); ctx.stroke();
     }
+    ctx.globalAlpha = 1;
 
     // Tick marks on axes
-    ctx.strokeStyle = "#6060a0";
+    ctx.strokeStyle = pal.text;
+    ctx.globalAlpha = 0.6;
     ctx.lineWidth = 1.5;
     const tickSize = 5;
     for (let gx = Math.ceil(xMin / gridStepX) * gridStepX; gx <= xMax; gx += gridStepX) {
@@ -142,8 +158,10 @@ function FunctionGraph({ equation, roots = [] }) {
       ctx.beginPath(); ctx.moveTo(sx - tickSize, sy); ctx.lineTo(sx + tickSize, sy); ctx.stroke();
     }
 
+    ctx.globalAlpha = 1;
+
     // Axes
-    ctx.strokeStyle = "#7070b0";
+    ctx.strokeStyle = pal.text;
     ctx.lineWidth = 2;
     // Y axis
     if (ox >= 0 && ox <= W) {
@@ -157,7 +175,8 @@ function FunctionGraph({ equation, roots = [] }) {
     // Axis labels — bright and readable
     ctx.font = "bold 12px monospace";
 
-    // Helper: draw label with dark background pill
+    // Helper: pastilla del color del FONDO bajo el texto, para que los números
+    // del eje se lean por encima de la rejilla en cualquiera de los dos temas.
     const drawLabel = (text, x, y, align) => {
       ctx.textAlign = align;
       const tw = ctx.measureText(text).width;
@@ -165,9 +184,11 @@ function FunctionGraph({ equation, roots = [] }) {
       let bx = x;
       if (align === "center") bx = x - tw / 2;
       else if (align === "right") bx = x - tw;
-      ctx.fillStyle = "rgba(20,20,45,0.75)";
+      ctx.fillStyle = pal.bg;
+      ctx.globalAlpha = 0.8;
       ctx.fillRect(bx - pad, y - 12, tw + pad * 2, 16);
-      ctx.fillStyle = "#c0c0ff";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = pal.text;
       ctx.fillText(text, x, y);
     };
 
@@ -196,8 +217,9 @@ function FunctionGraph({ equation, roots = [] }) {
       drawLabel("0", Math.min(Math.max(ox - 8, 4), W - 4), Math.min(Math.max(oy + 16, 16), H - 6), "right");
     }
 
-    // Curve f(x)
-    ctx.strokeStyle = "#a78bfa";
+    // Curve f(x) — el acento del tema: f(x) es la protagonista, mismo principio
+    // que fijó el director para la telaraña.
+    ctx.strokeStyle = pal.accent;
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     let penDown = false;
@@ -218,12 +240,14 @@ function FunctionGraph({ equation, roots = [] }) {
 
     // X-axis crossing line (y=0)
     if (oy >= 0 && oy <= H) {
-      ctx.strokeStyle = "#ffffff22";
+      ctx.strokeStyle = pal.text;
+      ctx.globalAlpha = 0.15;
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy);
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
     }
 
     // Roots
@@ -232,18 +256,21 @@ function FunctionGraph({ equation, roots = [] }) {
       if (sx < -20 || sx > W + 20) return;
 
       // Vertical dashed line at root
-      ctx.strokeStyle = "#f87171aa";
+      ctx.strokeStyle = ROJO;
+      ctx.globalAlpha = 0.7;
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 3]);
       ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
       ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
 
-      // Dot on x-axis
+      // Dot on x-axis. El anillo va del color del FONDO —antes era blanco fijo—
+      // para que separe el disco de la curva en los dos temas.
       ctx.beginPath();
       ctx.arc(sx, sy, 6, 0, Math.PI * 2);
-      ctx.fillStyle = "#f87171";
+      ctx.fillStyle = ROJO;
       ctx.fill();
-      ctx.strokeStyle = "#fff";
+      ctx.strokeStyle = pal.bg;
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
@@ -253,9 +280,11 @@ function FunctionGraph({ equation, roots = [] }) {
       const rootText = "x≈" + r.toPrecision(6);
       const rtw = ctx.measureText(rootText).width;
       const rty = Math.max(sy - 18, 18);
-      ctx.fillStyle = "rgba(20,10,10,0.82)";
+      ctx.fillStyle = pal.bg;
+      ctx.globalAlpha = 0.85;
       ctx.fillRect(sx - rtw/2 - 6, rty - 13, rtw + 12, 20);
-      ctx.fillStyle = "#ff9090";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = ROJO;
       ctx.fillText(rootText, sx, rty);
     });
 
@@ -271,14 +300,16 @@ function FunctionGraph({ equation, roots = [] }) {
       const tx = Math.min(Math.max(sx, tw/2 + 10), W - tw/2 - 10);
       const ty = Math.max(sy - 30, 24);
       // background
-      ctx.fillStyle = "rgba(10,10,30,0.92)";
+      ctx.fillStyle = pal.bg;
+      ctx.globalAlpha = 0.94;
       ctx.fillRect(tx - tw/2 - 8, ty - 16, tw + 16, 22);
+      ctx.globalAlpha = 1;
       // border
-      ctx.strokeStyle = "#f87171";
+      ctx.strokeStyle = ROJO;
       ctx.lineWidth = 1.5;
       ctx.strokeRect(tx - tw/2 - 8, ty - 16, tw + 16, 22);
       // text
-      ctx.fillStyle = "#ffd0d0";
+      ctx.fillStyle = pal.textStrong;
       ctx.fillText(tipText, tx, ty);
     }
   }, [equation, roots, evalF]);
@@ -317,7 +348,24 @@ function FunctionGraph({ equation, roots = [] }) {
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
 
-    return () => { ro.disconnect(); canvas.removeEventListener("wheel", onWheel); };
+    // El lienzo no hereda el tema: sus colores se leen en cada dibujo, así que
+    // hay que repintarlo cuando el tema cambia. Lo correcto es el evento de
+    // `matchMedia`; se refuerza con `focus` y `visibilitychange` porque cubren
+    // el caso corriente de cambiar el tema del sistema desde otra aplicación y
+    // volver a la pestaña. Mismo patrón —y misma razón— que en `CobwebGraph`.
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const repintar = () => draw();
+    mq.addEventListener("change", repintar);
+    window.addEventListener("focus", repintar);
+    document.addEventListener("visibilitychange", repintar);
+
+    return () => {
+      ro.disconnect();
+      canvas.removeEventListener("wheel", onWheel);
+      mq.removeEventListener("change", repintar);
+      window.removeEventListener("focus", repintar);
+      document.removeEventListener("visibilitychange", repintar);
+    };
   }, [draw, computeAutoView]);
 
   // Drag
@@ -403,7 +451,7 @@ function FunctionGraph({ equation, roots = [] }) {
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "320px", borderRadius: "10px", overflow: "hidden", border: "1px solid #3a3a5a", marginBottom: "1.5rem" }}>
+    <div style={{ position: "relative", width: "100%", height: "320px", borderRadius: "10px", overflow: "hidden", border: "1px solid var(--border)", marginBottom: "1.5rem" }}>
       <canvas
         ref={canvasRef}
         style={{ width: "100%", height: "100%", cursor: "grab", display: "block" }}
@@ -416,7 +464,7 @@ function FunctionGraph({ equation, roots = [] }) {
         <button onClick={resetView}  style={btnStyle}>⌂ Reset</button>
         {roots.length > 0 && <button onClick={centerRoots} style={btnStyle}>● Raíces</button>}
       </div>
-      <div style={{ position: "absolute", bottom: 8, left: 10, color: "#7070a0", fontSize: "11px", pointerEvents: "none" }}>
+      <div style={{ position: "absolute", bottom: 8, left: 10, color: "var(--text)", fontSize: "11px", pointerEvents: "none" }}>
         Scroll para zoom · Drag para mover
       </div>
     </div>
@@ -424,7 +472,7 @@ function FunctionGraph({ equation, roots = [] }) {
 }
 
 const btnStyle = {
-  background: "#2a2a4a", border: "1px solid #4a4a7a", color: "#a0a0c0",
+  background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-h)",
   borderRadius: "6px", padding: "4px 10px", cursor: "pointer", fontSize: "12px",
 };
 
