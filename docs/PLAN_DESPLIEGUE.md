@@ -88,8 +88,14 @@ muchas veces más.
 
 ## 5. ¿Render despliega solo al hacer push, o hay que lanzarlo a mano?
 
-**Investigado el 2026-07-28. Respuesta corta: casi con seguridad se despliega solo, pero
-NO está probado, y da igual — porque el propio push lo responde sin riesgo.**
+> ✅ **RESPONDIDO EMPÍRICAMENTE (2026-07-28): SE DESPLIEGA SOLO.**
+> Al pushear los 14 commits de FASE 3, `/practicar/plantilla` pasó de **404 a 200 en menos de
+> dos minutos**, **sin que nadie tocara el panel de Render**. Auto-Deploy está activado y el
+> servicio construye desde `main`. Vercel desplegó el frontend en la misma ventana.
+> Lo que sigue es el razonamiento previo, que quedó confirmado.
+
+**Investigado antes del push. Respuesta corta de entonces: casi con seguridad se despliega
+solo, pero no estaba probado — y daba igual, porque el propio push lo respondía sin riesgo.**
 
 ### Lo que sí está establecido (medido, no supuesto)
 

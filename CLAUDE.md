@@ -771,10 +771,30 @@ saltaba los factores pequeños cuando la fórmula referencia una sola celda. Rep
   se levantó el backend local y se repuntó `api.js` a `127.0.0.1:8000` **sólo durante la
   prueba**; `api.js` quedó restaurado a Render y NO entra en el commit.
 
-⚠️ **AVISO PARA EL PUSH:** subir esto sin desplegar el backend deja la pestaña Practicar
-pidiendo `/practicar/plantilla` a un Render que devuelve 404. El frontend lo enseña como
-"No se pudo contactar con el servidor", que es honesto pero inútil. **El backend debe
-desplegarse antes o a la vez que el frontend.**
+~~**AVISO PARA EL PUSH:** subir esto sin desplegar el backend…~~ → **RESUELTO: desplegado y
+verificado en producción el 2026-07-28.** (El aviso original describía además mal el síntoma;
+ver H5.)
+
+**FASE 3 DESPLEGADA Y VERIFICADA EN VIVO (2026-07-28).** 14 commits pusheados
+(`784f0c1..3a7fc25`), backend y frontend.
+- **Render auto-despliega: comprobado.** `/practicar/plantilla` pasó de **404 a 200 en menos
+  de dos minutos sin tocar el panel**. Queda respondida la incógnita del §5 de
+  `docs/PLAN_DESPLIEGUE.md`, y anotada allí como hecho, no como inferencia.
+- **Las cuatro pruebas del director, repetidas contra producción real:**
+
+| Prueba | Resultado en producción |
+|---|---|
+| `=B3-(C3/D3)` correcta | ACEPTADA — "Correcta." |
+| `=B3-C3/D3` equivalente | ACEPTADA — confirma D3 |
+| `=IF(E2*F2<0,B2,D2)` ramas invertidas (**H4**) | RECHAZADA, con la canónica como pista |
+| `=IF(I3<0.1,…)` umbral falso (**D3 multiescenario**) | RECHAZADA, mismo mensaje |
+
+- **El aviso de H5 ya no aparece:** con el endpoint desplegado, Practicar carga la tabla
+  (6 huecos, "0 de 6") y el único texto de aviso es el enunciado del ejercicio.
+- Consola sin errores (pestaña nueva). Bundle en producción: `index-Ck1Jdngw.js`.
+- **Antes del push, el director probó las mismas cuatro en local con sus propias manos** y las
+  cuatro dieron el resultado correcto. Que H4 y el segundo agujero de D3 se sostengan con una
+  verificación ajena a la mía es lo que ninguna batería propia puede acreditar.
 
 **Regresión completa de toda la app (2026-07-28). Primera vez que TODO el código nuevo
 convive en el mismo build.** Pedida por el director antes de considerar el push.
