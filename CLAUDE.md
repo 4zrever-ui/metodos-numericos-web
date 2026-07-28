@@ -440,6 +440,39 @@ la matemática ni el flujo:
   disparar `mouseleave` a mano NO funciona —React lo sintetiza desde `mouseout`—; el primer
   intento de prueba dio un falso fallo por eso.)
 
+**G13 — "converge" y "repele" a la vez cuando x₀ ya ERA el punto fijo (2026-07-28).**
+Señalado como rareza al cerrar el paso 4 y examinado después a petición del director. Al
+mirarlo en el navegador no era una rareza: eran **tres afirmaciones falsas** en el sitio donde
+vive la lección del método. Con `g(x) = x²−2` y x₀ = 2 (y g(2) = 2 exactamente) se leía:
+```
+Converge a x ≈ 2.0000 en 1 iteraciones. La escalera se cierra sobre el punto fijo.
+|g′| = 4.0000 medido en el punto fijo → mayor o igual que 1, el punto fijo repele.
+```
+- **No "converge":** la iteración no llegó a ningún sitio, empezó ya encima.
+- **No hay escalera:** la órbita tiene UN punto y de sus dos trazos uno mide cero
+  (`{x1:2,y1:2,x2:2,y2:2}`); lo dibujado es una raya vertical.
+- **"1 iteraciones":** error de concordancia, visible.
+- Y lo peor: un alumno que acaba de leer que |g′| < 1 es EL criterio ve el criterio violado y
+  el método "convergiendo" en la misma pantalla.
+**Arreglo:** el caso degenerado (`orbita.points.length === 1`) tiene mensaje propio, que lo
+nombra y lo convierte en lección — *"x₀ coincide justo con el punto fijo… que la iteración se
+quede quieta no significa que el método converja: significa que has empezado justo encima.
+Apártate un poco (prueba x₀ = 2.01) y verás la órbita alejarse"*. El consejo **está verificado**:
+desde 2.01 la órbita escapa en 8 pasos. Si el punto fijo atrae, el aviso cambia y no alarma.
+Plural corregido de paso. Es de la familia del pendiente 5 ("aviso de raíz exacta"), resuelto
+aquí sólo para la telaraña; en la calculadora sigue abierto.
+Verificado: repulsor degenerado · el consejo x₀=2.01 · atractor degenerado (`x/2` desde 0) ·
+convergencia normal (5 y 23 iteraciones, plural correcto).
+
+**Incidente de método (importante para futuras verificaciones): el dev server sirvió código
+obsoleto.** Tras restaurar un archivo con `Copy-Item` (al separar dos commits), el vigilante de
+Vite dejó de ver los cambios de ESE fichero: el arreglo estaba en disco y el navegador seguía
+ejecutando la versión anterior **incluso tras recargar**. Se detectó porque el texto en pantalla
+no cambiaba; se confirmó pidiendo el módulo al propio servidor
+(`fetch('/src/components/CobwebGraph.jsx')` → no contenía el arreglo) y se resolvió tocando la
+fecha del fichero. **Riesgo real:** una verificación en navegador puede estar validando código
+viejo sin avisar. Ante un cambio que "no se ve", comprobar primero que el servidor lo sirve.
+
 **Limitación de la verificación (importante):** **no hay capturas de pantalla** de ninguna
 parte de FASE 2. El panel del navegador debe estar visible para que la página componga frames
 y no lo estaba, así que todo lo anterior es **medición del DOM y de los píxeles del canvas**,

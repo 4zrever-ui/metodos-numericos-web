@@ -389,14 +389,36 @@ export default function CobwebGraph() {
     switch (orbita.status) {
       case "no-compila":
         return { tono: "aviso", texto: "No consigo interpretar esa g(x). Revisa la sintaxis: se admite ^, sqrt(), cbrt(), exp(), log(), sin(), cos()…" };
-      case "convergió":
+      case "convergió": {
+        // Caso degenerado: x₀ YA es el punto fijo. La órbita tiene un solo punto
+        // y uno de sus dos trazos mide cero, así que no hay escalera: se dibuja
+        // una raya vertical. Anunciar "converge en 1 iteración" era falso por
+        // partida triple, y con |g′| ≥ 1 el alumno leía "converge" y "repele" a
+        // la vez, justo donde vive la enseñanza del método.
+        if (orbita.points.length === 1) {
+          const repele = analisis.ok && !analisis.converges;
+          return {
+            tono: "aviso",
+            texto:
+              `x₀ coincide justo con el punto fijo: g(${x0}) = ${x0}, así que la iteración ` +
+              `no se mueve de ahí y no hay escalera que dibujar.` +
+              (repele
+                ? ` Y ojo: |g′| = ${analisis.absGp.toFixed(4)} ≥ 1, o sea que este punto fijo ` +
+                  `repele. Que la iteración se quede quieta no significa que el método converja: ` +
+                  `significa que has empezado justo encima. Apártate un poco (prueba x₀ = ` +
+                  `${(x0 + 0.01).toFixed(2)}) y verás la órbita alejarse.`
+                : ` Empieza un poco más lejos para ver cómo se acerca la escalera.`),
+          };
+        }
+        const n = orbita.points.length;
         return {
           tono: "bien",
           // 4 decimales, no 9: el corte es la tolerancia de dibujo (1e-4) y en
           // convergencia lineal el error real es varias veces el último paso.
           // Prometer nueve cifras aquí sería mentir sobre la precisión.
-          texto: `Converge a x ≈ ${orbita.root.toFixed(4)} en ${orbita.points.length} iteraciones. La escalera se cierra sobre el punto fijo. (Para el valor con toda la precisión, la pestaña Calcular.)`,
+          texto: `Converge a x ≈ ${orbita.root.toFixed(4)} en ${n} ${n === 1 ? "iteración" : "iteraciones"}. La escalera se cierra sobre el punto fijo. (Para el valor con toda la precisión, la pestaña Calcular.)`,
         };
+      }
       case "escapó":
         return {
           tono: "mal",
