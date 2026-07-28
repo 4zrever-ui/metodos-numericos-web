@@ -690,6 +690,32 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
   **Reproducir:** `generate_params(parse_equation('x**3 - 2*x - 5')).gx_sympy` desde la raíz
   del repo. Tocarlo implica motor matemático + plantillas de Excel + los 152 tests.
 
+- **H2 — PATRÓN: cuatro veces el documento ha prometido lo que el código no tiene.**
+  No son anécdotas sueltas; es la razón por la que la regla 1 existe y por la que conviene
+  medir antes de construir. Los cuatro casos, todos verificados ejecutando:
+  1. **`gx_candidates`** (FASE 2, D3): su docstring anuncia varias estrategias de g(x);
+     sólo está implementada la S1. Nunca hay más de un candidato. → D3 revertida.
+  2. **`formulas`** (FASE 3): figura en §8 como dependencia de entorno, pero **ningún
+     archivo del repo la importa**. No hay evaluador de fórmulas de Excel en el proyecto,
+     en ningún lenguaje. → `lib/celdas.js` se escribió de cero.
+  3. **La premisa de D4** (FASE 1→3): la deuda de estado se anotó diciendo que Aprender
+     compartiría su ecuación. `AprenderPage` **nunca tuvo ecuación** —su único estado es el
+     método— y la telaraña usa presets. → el objetivo del refactor tuvo que replantearse.
+  4. **La cobertura de los 152 tests** (FASE 3): ver H3.
+  **Qué hacer con esto:** antes de construir sobre una afirmación de este documento, de un
+  docstring o de un plan aprobado, ejecutar el código y comprobarla. Las cuatro veces el
+  coste de verificar fue de minutos; construir encima habría costado días.
+
+- **H3 — Hueco de cobertura real: `excel_templates.py` no tiene NINGÚN test.**
+  Medido en FASE 3: el único import de Excel en toda la suite es
+  `from backend.excel.excel_generator import _has_real_roots` (en `test_real_roots_detection.py`).
+  **`backend/excel/excel_templates.py` —1091 líneas, donde vive cada fórmula de cada método—
+  importa cero veces.** Los "152/152 tests pasando" cubren métodos y parseo, **no** el Excel.
+  **Consecuencia para quien lo toque:** un cambio ahí no lo atrapa la suite; el fallo sólo
+  aparecería al abrir un .xlsx descargado. Si hay que modificarlo, hay que traer los tests.
+  (Por eso FASE 3 decidió NO tocarlo y exponer las fórmulas desde un módulo aparte fijado
+  por un test de coincidencia — ver §5.)
+
 **Deuda técnica:**
 - Optimización futura: cargar KaTeX de forma diferida (lazy load) para recuperar el
   peso inicial del bundle (~260 kB extra). No urgente.
