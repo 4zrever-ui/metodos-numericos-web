@@ -275,6 +275,18 @@
   background: var(--accent-bg);
 }
 
+/* "Interpretado como…": el mismo patrón que la calculadora, para que el alumno
+ * vea qué entendió el sistema cuando escribe x², × o el menos Unicode. */
+.cobweb-interpretado {
+  font-size: 13px;
+  margin: -10px 0 16px;
+  opacity: 0.85;
+}
+
+.cobweb-interpretado code {
+  font-size: 13px;
+}
+
 .cobweb-aviso-personalizada {
   border-left: 3px solid var(--accent);
   background: var(--accent-bg);

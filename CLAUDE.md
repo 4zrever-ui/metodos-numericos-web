@@ -384,6 +384,39 @@ Detectado por el director probando en el navegador, no por la auditoría de píx
   (**sin marcador**, |g′|=4.0000 en x=2 con aviso de criterio local) · g inválida.
   ESLint 0/0, `npm run build` OK.
 
+**G12 — la telaraña rechazaba notación que el resto de la aplicación acepta (2026-07-27).**
+Reportado por el director como *"escribo `x**2 -2` y responde «No consigo interpretar esa
+g(x)»"*, con una secuencia exacta: cúbica, x₀=2, borrar el campo, elegir un reordenamiento y
+luego teclear.
+- **La secuencia reportada NO reproduce** (verificado paso a paso en el navegador): con
+  `x**2 -2` en ASCII puro la órbita sale bien, y el estado previo de haber elegido un
+  reordenamiento no influye. `compileExpr("x**2 -2")` devuelve función en `node` también.
+- **La causa real son los caracteres, no la sintaxis.** `CobwebGraph` pasaba el texto directo
+  a `compileExpr`, **saltándose `mathNotation.js`** —el normalizador que la calculadora usa
+  desde `66e8032`—. Medido:
+
+  | Entrada | ¿Compilaba? | Tras normalizar |
+  |---|---|---|
+  | `x**2 -2` (ASCII) | sí | sí |
+  | `x**2 −2` (**menos U+2212**) | **no** | sí |
+  | `x² - 2` (superíndice) | no | sí |
+  | `2×x - 2` | no | sí |
+  | `g(x) = x**2 - 2` | no | sí |
+
+  El menos U+2212 es **el que este proyecto usa en toda su documentación y en las fichas de
+  teoría**, así que sale solo al copiar y pegar: es el sospechoso número uno de lo que se vio.
+- **Arreglo:** la g(x) se normaliza con `normalizeMathInput` antes de evaluarla, y se muestra
+  "Interpretado como …" con `normalizationPreview`, el mismo patrón que la calculadora. La
+  comparación con los reordenamientos también usa la forma normalizada, para que escribir a
+  mano `x²` en vez de `x**2` siga contando como ese reordenamiento (y no dispare el aviso de
+  g personalizada). **Regla 2 respetada:** se reutiliza el normalizador ligero, no se instala nada.
+- **Regresión comprobada:** los 6 reordenamientos de los presets pasan por el normalizador
+  **sin cambiar** (`normalizeMathInput(expr) === expr`) y evalúan idéntico en 4 puntos cada uno.
+- **Limitación conocida:** el normalizador no cubre el guion corto U+2013 ni el asterisco
+  Unicode U+2217; con esos la telaraña sigue diciendo que no entiende. Ampliarlo tocaría
+  `mathNotation.js`, que comparte con la calculadora, y no se hizo aquí.
+- Verificación: **14/14** casos nuevos (`smoke4`), más las baterías previas 52/52, 35/35, 60/60.
+
 **Limitación de la verificación (importante):** **no hay capturas de pantalla** de ninguna
 parte de FASE 2. El panel del navegador debe estar visible para que la página componga frames
 y no lo estaba, así que todo lo anterior es **medición del DOM y de los píxeles del canvas**,

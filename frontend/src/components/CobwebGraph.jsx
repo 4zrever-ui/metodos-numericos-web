@@ -3,6 +3,7 @@ import Katex from "./Katex.jsx";
 import { GX_PRESETS } from "../content/gxPresets.js";
 import { compileExpr } from "../lib/evalExpr.js";
 import { analyzeG, cobwebPath, iterateG } from "../lib/fixedPoint.js";
+import { normalizationPreview, normalizeMathInput } from "../mathNotation";
 import { formatTick, getPlotPalette, gridLines, isoView, makeTransform, niceStep } from "../lib/plotCore.js";
 
 /**
@@ -61,11 +62,21 @@ export default function CobwebGraph() {
 
   // ── Cálculo ───────────────────────────────────────────────────────────────
 
+  // La g(x) se normaliza ANTES de evaluarla, con el mismo `mathNotation.js` que
+  // usa la calculadora desde el commit 66e8032. Sin esto, la telaraña rechazaba
+  // notación que el resto de la aplicación acepta: el caso que lo destapó fue
+  // `x**2 −2` escrito con el MENOS UNICODE (U+2212) —el mismo signo que este
+  // proyecto usa en toda su documentación y en las fichas de teoría, así que
+  // sale solo al copiar y pegar—, que `new Function` no entiende. También cubre
+  // `x²`, `×`, `÷`, `π` y los envoltorios tipo "g(x) = …".
+  const gxNorm = useMemo(() => normalizeMathInput(gxTexto), [gxTexto]);
+  const vistaPrevia = normalizationPreview(gxTexto);
+
   const orbita = useMemo(
     () => (x0Valido
-      ? iterateG(gxTexto, x0, { maxIter: MAX_PASOS, tol: TOL_DIBUJO })
+      ? iterateG(gxNorm, x0, { maxIter: MAX_PASOS, tol: TOL_DIBUJO })
       : { status: "escapó", points: [], root: null }),
-    [gxTexto, x0, x0Valido]
+    [gxNorm, x0, x0Valido]
   );
 
   const segmentos = useMemo(() => cobwebPath(orbita.points), [orbita]);
@@ -73,15 +84,19 @@ export default function CobwebGraph() {
   // ¿La g activa es uno de los reordenamientos de la ecuación elegida, o algo
   // que ha escrito el alumno? Cambiar de ecuación ya repone la g del preset,
   // pero al revés —elegir ecuación y luego teclear— la g puede no tener nada
-  // que ver con ella, y eso hay que decirlo en pantalla.
-  const esPersonalizada = !preset.gxs.some((g) => g.expr === gxTexto);
+  // que ver con ella, y eso hay que decirlo en pantalla. Se compara también la
+  // forma normalizada: escribir a mano un reordenamiento con otra notación
+  // (`x²` en vez de `x**2`) sigue siendo ese reordenamiento.
+  const esPersonalizada = !preset.gxs.some(
+    (g) => g.expr === gxTexto || normalizeMathInput(g.expr) === gxNorm
+  );
 
   // El punto fijo que se marca tiene que ser el de la g QUE SE DIBUJA, no el de
   // la ecuación del selector. Antes se marcaba `preset.raiz` siempre: con una g
   // personalizada eso ponía un punto que ni está sobre la curva ni es el límite
   // de la órbita. Es la misma familia que G3 (estado dependiente sin invalidar).
   const puntoFijo = useMemo(() => {
-    const g = compileExpr(gxTexto);
+    const g = compileExpr(gxNorm);
     if (g && preset && Number.isFinite(preset.raiz)) {
       const r = preset.raiz;
       const gr = g(r);
@@ -90,15 +105,15 @@ export default function CobwebGraph() {
     // Si no, el único punto fijo que conocemos con certeza es al que llegó la órbita.
     if (orbita.status === "convergió" && Number.isFinite(orbita.root)) return orbita.root;
     return null;
-  }, [gxTexto, preset, orbita]);
+  }, [gxNorm, preset, orbita]);
 
   // |g'| se mide en el punto fijo cuando lo conocemos; si no, en x₀, diciendo
   // dónde. El criterio |g'| < 1 es local: prometerlo en el sitio equivocado
   // sería mentir.
   const analisis = useMemo(() => {
     const punto = puntoFijo !== null ? puntoFijo : (x0Valido ? x0 : 0);
-    return { ...analyzeG(gxTexto, punto), enPuntoFijo: puntoFijo !== null };
-  }, [gxTexto, puntoFijo, x0, x0Valido]);
+    return { ...analyzeG(gxNorm, punto), enPuntoFijo: puntoFijo !== null };
+  }, [gxNorm, puntoFijo, x0, x0Valido]);
 
   const totalPasos = segmentos.length;
   const pasoVisible = paso === null ? totalPasos : Math.min(paso, totalPasos);
@@ -212,7 +227,7 @@ export default function CobwebGraph() {
     ctx.setLineDash([]);
 
     // La curva g(x)
-    const g = compileExpr(gxTexto);
+    const g = compileExpr(gxNorm);
     if (g) {
       ctx.strokeStyle = pal.accent;
       ctx.lineWidth = 2.5;
@@ -265,7 +280,7 @@ export default function CobwebGraph() {
       ctx.textAlign = "center";
       ctx.fillText("x₀", toScreenX(x0), toScreenY(0) + 20);
     }
-  }, [rango, gxTexto, orbita, segmentos, pasoVisible, puntoFijo, x0, x0Valido]);
+  }, [rango, gxNorm, orbita, segmentos, pasoVisible, puntoFijo, x0, x0Valido]);
 
   useEffect(() => { dibujar(); }, [dibujar]);
 
@@ -345,7 +360,9 @@ export default function CobwebGraph() {
     setAnimando(true);
   };
 
-  const gxActual = preset.gxs.find((g) => g.expr === gxTexto) || null;
+  const gxActual = preset.gxs.find(
+    (g) => g.expr === gxTexto || normalizeMathInput(g.expr) === gxNorm
+  ) || null;
 
   return (
     <div className="cobweb">
@@ -384,7 +401,7 @@ export default function CobwebGraph() {
         <span className="ficha-etiqueta">Reordenamientos de esta ecuación</span>
         {preset.gxs.map((g) => {
           const a = analyzeG(g.expr, preset.raiz);
-          const activo = g.expr === gxTexto;
+          const activo = g.expr === gxTexto || normalizeMathInput(g.expr) === gxNorm;
           return (
             <button
               key={g.expr}
@@ -408,6 +425,12 @@ export default function CobwebGraph() {
         </span>
         <input type="text" value={gxTexto} onChange={(e) => cambiarGx(e.target.value)} spellCheck="false" />
       </label>
+
+      {vistaPrevia && (
+        <p className="cobweb-interpretado">
+          Interpretado como <code>{vistaPrevia}</code>
+        </p>
+      )}
 
       {esPersonalizada && (
         <p className="cobweb-aviso-personalizada">
