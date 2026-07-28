@@ -1,3 +1,19 @@
+> [!WARNING]
+> **DOCUMENTO DESACTUALIZADO — no lo uses como referencia.**
+>
+> Esta carpeta no se actualiza desde el **2026-06-06** y quedo fuera de la
+> consolidacion documental del proyecto. Parte de su contenido **ya contradice
+> el codigo**: por ejemplo, aqui se describe la interfaz como un unico
+> `App.jsx`, archivo que dejo de existir en FASE 1.
+>
+> **La fuente de verdad actual es `CLAUDE.md`** (estado tecnico del proyecto) y
+> **`VISION_PLATAFORMA.md`** (plan y fases).
+>
+> Se conserva por su valor historico, sin revisar. Ver el hallazgo **H6** en
+> `CLAUDE.md` seccion 7.
+
+---
+
 # DELIVERY_CHECKLIST.md
 
 **Proyecto:** Métodos Numéricos Web — Backend Python / FastAPI  

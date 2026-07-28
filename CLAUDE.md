@@ -992,11 +992,14 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   empezar esta sesión.
   **NO revisado:** los otros 11 archivos. Podrían estar bien, obsoletos, o a medias; sólo se
   hizo una comprobación puntual.
-  **Estado: sin tocar, esperando decisión del director.** Las opciones evidentes son moverlos
-  a `_historico/`, marcarlos con una cabecera de "documento histórico, ver CLAUDE.md", o
-  revisarlos uno a uno. **No es decisión mía**, y borrar documentación ajena aún menos.
-  **Nota:** `docs/PLAN_DESPLIEGUE.md` (2026-07-28) sí está al día — queda en una carpeta cuyo
-  resto de contenido está sin auditar, y conviene saberlo.
+  **Medida mínima aplicada (2026-07-28, decisión del director):** los **12** archivos llevan
+  ahora una cabecera de aviso —`> [!WARNING] DOCUMENTO DESACTUALIZADO…`— que remite a
+  CLAUDE.md y VISION como fuentes de verdad y cita el ejemplo del `App.jsx` inexistente.
+  **No se ha borrado ni movido nada:** es lo mínimo para que nadie se guíe por información
+  falsa, sin comprometer una reorganización todavía no decidida.
+  `docs/PLAN_DESPLIEGUE.md` (2026-07-28) **no** lleva el aviso: está al día.
+  **Sigue abierto** qué hacer con la carpeta a medio plazo, y **los 11 documentos restantes
+  siguen sin revisar** — sólo se comprobó `RESUMEN_PROYECTO.md`.
 
 - **H5 — CERRADO: Practicar se quedaba EN BLANCO Y EN SILENCIO contra el backend desplegado,
   y yo había afirmado lo contrario.** Descubierto en la regresión completa, apuntando a Render.
@@ -1103,10 +1106,34 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   por un test de coincidencia — ver §5.)
 
 **Deuda técnica:**
-- **¿Miran `r.ok` las demás llamadas del proyecto? — SIN REVISAR.** H5 destapó que comprobar
-  sólo el campo de error propio deja pasar cualquier error HTTP. `fetchWithWake` y las
-  llamadas de `CalcularPage` (`/params`, `/method/*`, `/excel/*`) **no se han auditado** con
-  ese criterio. Es revisión, no rediseño; conviene hacerla antes de añadir más endpoints.
+- ✅ **AUDITADO (2026-07-28): ninguna otra llamada tiene el fallo de H5.** Se revisaron las
+  **seis** que hay en el frontend:
+
+  | Llamada | ¿Comprueba el estado? | Veredicto |
+  |---|---|---|
+  | `fetchWithWake` | Mira `502/503/504` para reintentar y **devuelve `res`** al llamador | Correcto por diseño: delega |
+  | `/method/*` individual | `if (!res.ok)` → lanza con `detail` o `Error del servidor: <status>` | ✅ |
+  | `/method/all` | idéntico al anterior | ✅ |
+  | `/excel/*` (`descargarBlob`) | `if (!res.ok)` → lanza con el status | ✅ |
+  | `/diagnose` | `if (!res.ok)` → lanza, y el `catch` **degrada a una explicación genérica** | ✅ |
+  | Warm-up de G5 (`PlataformaLayout`) | `.catch(() => {})` | Intencionado: su resultado no se usa |
+
+  **El fallo de H5 era específico y no se repite:** consistía en tomar el cuerpo de una
+  respuesta NO-ok por una carga útil buena. Las demás, o comprueban el estado, o ignoran el
+  resultado a propósito.
+
+- **`/params` calla cuando falla — decisión de UX PENDIENTE, no un bug de la familia de H5.**
+  `fetchAutoParams` hace `if (!res.ok) return;` y `catch { /* silencioso */ }`. **Sí** consulta
+  `data.error`, así que no confunde un error con un éxito: simplemente no actualiza nada.
+  **Consecuencia real:** con el backend dormido el estudiante escribe su ecuación y no ve
+  parámetros sugeridos ni marcadores de raíz, **sin ninguna explicación**. Y no usa
+  `fetchWithWake`, así que tampoco hay reintento ni banner de cold-start.
+  **Por qué NO se ha tocado:** la llamada se dispara **en cada cambio de la ecuación**, es
+  decir casi en cada pulsación. Hacerla ruidosa podría ser peor que el silencio actual —
+  avisos parpadeando mientras se teclea. Es una decisión de experiencia de usuario, no una
+  corrección evidente, y **la toma el director**. Opciones: dejarlo como está; un aviso
+  discreto y no bloqueante junto a los campos; o pasarla por `fetchWithWake` para que al menos
+  reintente en el cold-start.
 - ✅ **RESUELTO (2026-07-28): el chequeo de caracteres vive en `scripts/check_chars.py`.**
   Decisión del director: **script invocable a mano, no hook de pre-commit** — que esté
   disponible, no que bloquee commits. Estrena la carpeta `scripts/`.
