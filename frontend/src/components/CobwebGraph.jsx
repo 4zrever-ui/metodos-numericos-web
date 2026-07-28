@@ -158,6 +158,17 @@ export default function CobwebGraph() {
 
   // ── Dibujo ────────────────────────────────────────────────────────────────
 
+  // La vista la comparten el dibujo y el ratón: si cada uno calculara la suya,
+  // el puntero señalaría un sitio y la curva estaría en otro.
+  const vistaDe = useCallback(
+    (w, h) => isoView({ width: w, height: h, xMin: rango.lo, xMax: rango.hi, yMin: rango.lo, yMax: rango.hi }),
+    [rango]
+  );
+
+  // Punto de la curva bajo el cursor. Va en una ref y no en estado: cambia con
+  // cada píxel de movimiento y no debe provocar un render de React por cada uno.
+  const hoverRef = useRef(null);
+
   const dibujar = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -172,7 +183,7 @@ export default function CobwebGraph() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const pal = getPlotPalette(canvas);
-    const vista = isoView({ width: w, height: h, xMin: rango.lo, xMax: rango.hi, yMin: rango.lo, yMax: rango.hi });
+    const vista = vistaDe(w, h);
     const { toScreenX, toScreenY, toMathX, toMathY } = makeTransform(vista);
 
     ctx.clearRect(0, 0, w, h);
@@ -244,18 +255,54 @@ export default function CobwebGraph() {
       ctx.stroke();
     }
 
+    // Etiqueta con fondo: sobre la rejilla y la curva, el texto suelto se pierde.
+    // `lado` la aparta del punto que rotula. En el punto fijo importa: es justo
+    // donde se amontona la escalera, y centrarla encima tapaba el trazo.
+    const etiqueta = (texto, sx, sy, colorTexto, lado = "arriba") => {
+      ctx.font = "bold 12px ui-monospace, Consolas, monospace";
+      const ancho = ctx.measureText(texto).width;
+      const alto = 18;
+      const dx = lado === "derecha" ? 14 : -(ancho / 2) - 6;
+      const dy = lado === "derecha" ? -alto / 2 : -alto - 10;
+      let x = Math.min(Math.max(sx + dx, 2), w - ancho - 14);
+      let y = Math.min(Math.max(sy + dy, 2), h - alto - 2);
+      ctx.fillStyle = pal.bg;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(x, y, ancho + 12, alto);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = colorTexto;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, ancho + 12, alto);
+      ctx.fillStyle = colorTexto;
+      ctx.textAlign = "left";
+      ctx.fillText(texto, x + 6, y + 13);
+    };
+
     // El punto fijo (donde g corta la diagonal). Sale de `puntoFijo`, no del
     // preset: con una g personalizada el corte está en otro sitio, y marcar el
     // del preset sería señalar un punto que no está ni sobre la curva.
     if (puntoFijo !== null) {
       const r = puntoFijo;
+      const sx = toScreenX(r), sy = toScreenY(r);
+
+      // Halo del color del fondo: sin él, el disco se confunde con la rejilla
+      // y con la propia curva justo donde más importa distinguirlo.
       ctx.beginPath();
-      ctx.arc(toScreenX(r), toScreenY(r), 5, 0, Math.PI * 2);
+      ctx.arc(sx, sy, 9, 0, Math.PI * 2);
+      ctx.fillStyle = pal.bg;
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
       ctx.fillStyle = pal.accent;
       ctx.fill();
-      ctx.strokeStyle = pal.bg;
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = pal.textStrong;
+      ctx.lineWidth = 1.5;
       ctx.stroke();
+
+      etiqueta(`punto fijo  x* = ${r.toFixed(4)}`, sx, sy, pal.accent, "derecha");
     }
 
     // La telaraña
@@ -272,15 +319,40 @@ export default function CobwebGraph() {
 
     // x₀, de donde arranca todo
     if (x0Valido) {
+      const sx = toScreenX(x0), sy = toScreenY(0);
       ctx.beginPath();
-      ctx.arc(toScreenX(x0), toScreenY(0), 4, 0, Math.PI * 2);
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
       ctx.fillStyle = escapa ? COLOR_ESCAPE : pal.textStrong;
       ctx.fill();
       ctx.font = "bold 12px ui-monospace, Consolas, monospace";
       ctx.textAlign = "center";
-      ctx.fillText("x₀", toScreenX(x0), toScreenY(0) + 20);
+      // Debajo del eje, con fondo, para no pelearse con la etiqueta del tick.
+      const texto = `x₀ = ${x0}`;
+      const ancho = ctx.measureText(texto).width;
+      const ty = Math.min(sy + 8, h - 20);
+      ctx.fillStyle = pal.bg;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(sx - ancho / 2 - 5, ty, ancho + 10, 17);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = escapa ? COLOR_ESCAPE : pal.textStrong;
+      ctx.fillText(texto, sx, ty + 12);
     }
-  }, [rango, gxNorm, orbita, segmentos, pasoVisible, puntoFijo, x0, x0Valido]);
+
+    // Rótulo de la curva bajo el cursor: dice QUÉ g(x) se está mirando y en qué
+    // punto, que es la pregunta que uno se hace al pasar el ratón por encima.
+    const hover = hoverRef.current;
+    if (hover && g) {
+      const sx = toScreenX(hover.x), sy = toScreenY(hover.y);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = pal.accent;
+      ctx.fill();
+      ctx.strokeStyle = pal.bg;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      etiqueta(`g(x) = ${gxNorm}   (${hover.x.toFixed(3)}, ${hover.y.toFixed(3)})`, sx, sy, pal.accent);
+    }
+  }, [vistaDe, rango, gxNorm, orbita, segmentos, pasoVisible, puntoFijo, x0, x0Valido]);
 
   useEffect(() => { dibujar(); }, [dibujar]);
 
@@ -353,6 +425,38 @@ export default function CobwebGraph() {
 
   const cambiarGx = (expr) => { setGxTexto(expr); reiniciar(); };
   const cambiarX0 = (valor) => { setX0Texto(valor); reiniciar(); };
+
+  // Cursor sobre la curva: se compara la altura del puntero con g(x) en esa
+  // abscisa. Solo se repinta cuando el rótulo aparece, desaparece o se mueve,
+  // no en cada píxel de recorrido.
+  const alMoverRaton = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const g = compileExpr(gxNorm);
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const { toMathX, toScreenY } = makeTransform(vistaDe(canvas.clientWidth, canvas.clientHeight));
+
+    let nuevo = null;
+    if (g) {
+      const x = toMathX(mx);
+      const y = g(x);
+      if (Number.isFinite(y) && Math.abs(toScreenY(y) - my) <= 12) nuevo = { x, y };
+    }
+
+    const antes = hoverRef.current;
+    if (antes === null && nuevo === null) return;
+    hoverRef.current = nuevo;
+    canvas.style.cursor = nuevo ? "crosshair" : "default";
+    dibujar();
+  };
+
+  const alSalirRaton = () => {
+    if (hoverRef.current === null) return;
+    hoverRef.current = null;
+    dibujar();
+  };
 
   const alternarAnimacion = () => {
     if (animActiva) { setAnimando(false); return; }
@@ -441,7 +545,13 @@ export default function CobwebGraph() {
         </p>
       )}
 
-      <canvas ref={canvasRef} className="cobweb-lienzo" style={{ height: ALTO_LIENZO }} />
+      <canvas
+        ref={canvasRef}
+        className="cobweb-lienzo"
+        style={{ height: ALTO_LIENZO }}
+        onMouseMove={alMoverRaton}
+        onMouseLeave={alSalirRaton}
+      />
 
       <div className="cobweb-pasos">
         <button type="button" onClick={() => { setAnimando(false); setPaso(Math.max(0, pasoVisible - 1)); }} disabled={pasoVisible === 0}>◀</button>

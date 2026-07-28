@@ -417,6 +417,29 @@ luego teclear.
   `mathNotation.js`, que comparte con la calculadora, y no se hizo aquí.
 - Verificación: **14/14** casos nuevos (`smoke4`), más las baterías previas 52/52, 35/35, 60/60.
 
+**Legibilidad de la telaraña (2026-07-27, pedido por el director).** Dos ajustes, sin tocar
+la matemática ni el flujo:
+- **Rótulo de la curva al pasar el ratón.** Sobre el lienzo, si el puntero está a ≤ 12 px de
+  la curva, aparece `g(x) = … (x, g(x))` con el punto marcado. El estado del cursor vive en
+  una **ref, no en estado de React**: cambia con cada píxel de movimiento y no debe provocar
+  un render por cada uno. El ratón y el dibujo comparten la misma vista (`vistaDe`), porque si
+  cada uno calculara la suya el puntero señalaría un sitio y la curva estaría en otro.
+- **El punto fijo ahora se lee.** Antes era un disco de 5 px sin etiqueta, perdido entre la
+  rejilla y la curva. Ahora lleva halo del color del fondo, borde de contraste y la etiqueta
+  `punto fijo x* = …` **a la derecha, no encima**: centrada arriba tapaba justo la parte donde
+  se amontona la escalera al converger. La etiqueta de x₀ pasa de `x₀` a `x₀ = valor`, con
+  fondo, para no pelearse con los números del eje.
+- **Efecto medido en la auditoría de píxeles:** el porcentaje de órbita "en tramos rectos" baja
+  de ~97 % a 80-94 % **porque el clasificador cuenta el texto de las etiquetas como órbita**
+  (son del mismo color) y las cajas tapan unos pocos píxeles de trazo. El sobrecoste es fijo
+  (~60 px), así que se nota en órbitas cortas (caso `cbrt`, 437 px) y no en las largas
+  (caso `5/(x²−2)`, 2186 px → 94.5 %). No es una regresión del dibujo: **la métrica dejó de ser
+  comparable con la del paso 4**, y conviene recordarlo antes de leerla como un empeoramiento.
+- Verificado en claro y en oscuro: cursor `crosshair` sólo sobre la curva, el rótulo aparece
+  (5355 px cambian), se borra al alejarse dentro del lienzo y al salir de él. (Nota de método:
+  disparar `mouseleave` a mano NO funciona —React lo sintetiza desde `mouseout`—; el primer
+  intento de prueba dio un falso fallo por eso.)
+
 **Limitación de la verificación (importante):** **no hay capturas de pantalla** de ninguna
 parte de FASE 2. El panel del navegador debe estar visible para que la página componga frames
 y no lo estaba, así que todo lo anterior es **medición del DOM y de los píxeles del canvas**,
