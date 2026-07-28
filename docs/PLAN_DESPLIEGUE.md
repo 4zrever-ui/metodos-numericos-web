@@ -86,28 +86,56 @@ muchas veces más.
 
 ---
 
-## 5. LA PREGUNTA QUE HAY QUE RESOLVER ANTES DE NADA
+## 5. ¿Render despliega solo al hacer push, o hay que lanzarlo a mano?
 
-**¿Render despliega solo al hacer push a `main`, o hay que lanzarlo a mano?**
+**Investigado el 2026-07-28. Respuesta corta: casi con seguridad se despliega solo, pero
+NO está probado, y da igual — porque el propio push lo responde sin riesgo.**
 
-**No lo sé, y no puedo averiguarlo desde aquí**: no tengo acceso al panel de Render, y el
-repositorio **no contiene ninguna configuración de despliegue** (no hay `render.yaml`, ni
-`Procfile`, ni `runtime.txt`). Toda la configuración vive en el panel del servicio.
+### Lo que sí está establecido (medido, no supuesto)
 
-De la respuesta dependen dos cosas:
+**1. El backend desplegado está AL DÍA con lo pusheado. No hay atraso.**
+El último commit pusheado que toca `backend/` es **`87c4f86`** (2026-06-17, arreglo G2+G7).
+Sondeando la API en producción, esos arreglos **están vivos**:
 
-- **Si Render auto-despliega desde `main`:** el problema de orden **desaparece**. Un solo push
-  sube frontend (Vercel) y backend (Render), y basta con esperar a que Render termine —
-  probablemente más lento que Vercel, así que habrá una ventana de minutos en la que Practicar
-  dará el 404. Aceptable.
-- **Si el despliegue es manual:** hay que **lanzarlo antes o justo después del push**, y hasta
-  entonces Practicar mostrará el 404 en producción.
+```
+POST /params  {"equation":"x**3 - 4*x + 1"}
+  → roots: [0.2541016884, 1.8608058531, -2.1149075415]   ← G7: las 3 raíces reales
+POST /params  {"equation":"x**2 + 1"}
+  → roots: []                                            ← G2: sin raíz fantasma
+POST /practicar/plantilla
+  → 404                                                  ← FASE 3, aún sin pushear
+```
 
-Dato que se puede comprobar en un minuto desde el panel de Render: *Settings → Build & Deploy →
-Auto-Deploy*. También conviene confirmar ahí el **Root Directory** y el **Start Command**,
-porque los imports son `from backend.X` y el servidor debe arrancarse **desde la raíz del
-repositorio** (`uvicorn backend.main:app`), no desde `backend/`. Si hoy funciona, ya está bien
-configurado y no hay que tocarlo — pero conviene verlo antes de asumirlo.
+O sea: **todo lo pusheado está desplegado, y lo único que falta es lo que todavía no se ha
+subido.** No existe ningún commit pusheado que Render no tenga.
+
+**2. Render construye DESDE EL REPOSITORIO.** Lo prueban dos commits del historial hechos
+justamente para que el despliegue funcionara: `e4c6cb2` "add requirements.txt para deploy" y
+`1c45a7a` "fix python version 3.11". Un servicio que no construyera desde el repo no
+necesitaría ninguno de los dos.
+
+### Lo que NO se puede probar desde fuera
+
+**Que Auto-Deploy esté activado.** Es un ajuste del panel, y no hay forma de leerlo por HTTP.
+Los servicios de Render conectados a un repositorio lo traen **activado por defecto**, y el
+hecho de que no haya atraso encaja con eso — pero también encajaría con que alguien lo
+desplegara a mano tras el push de junio. **Las dos hipótesis explican lo observado**, así que
+esto es una inferencia, no una comprobación.
+
+### Cómo salir de dudas (dos vías, ninguna arriesgada)
+
+- **La rápida:** panel de Render → *Settings → Build & Deploy → **Auto-Deploy***. Treinta
+  segundos. De paso conviene mirar ahí el **Root Directory** y el **Start Command**: los
+  imports del proyecto son `from backend.X`, así que el servidor tiene que arrancarse **desde
+  la raíz del repositorio** (`uvicorn backend.main:app`), no desde `backend/`. Si hoy funciona,
+  ya está bien puesto; sólo es para no asumirlo.
+- **La que se responde sola:** **el push lo despeja.** Si tras subir se empieza a responder
+  `200` en `/practicar/plantilla` sin que nadie toque nada, es automático. Si sigue dando
+  `404` pasados unos minutos, es manual y se lanza desde el panel.
+
+**Por eso esta incógnita NO bloquea la decisión.** El peor caso de equivocarse es que haya que
+entrar al panel a darle a un botón, con Practicar mostrando su mensaje de 404 mientras tanto —
+que desde el arreglo de H5 es un mensaje claro y no una página muda.
 
 ---
 
@@ -144,10 +172,16 @@ configurado y no hay que tocarlo — pero conviene verlo antes de asumirlo.
 
 ## 8. Recomendación
 
-**Desplegar backend y frontend juntos**, resolviendo antes la pregunta de §5.
+**Un solo push de todo, y comprobar §6 inmediatamente después.**
 
-Si Render auto-despliega, es un único push y a esperar. Si no, el orden que menos molesta al
-visitante es: **desplegar backend primero**, comprobar §6.1–6.3, y luego pushear el frontend.
+La pregunta de §5 ya no obliga a decidir por adelantado: lo más probable es que Render se
+despliegue solo, y si no lo hace, se ve en dos minutos sondeando `/practicar/plantilla` y se
+lanza a mano desde el panel. Mientras tanto Practicar muestra su mensaje de 404, que nombra
+exactamente lo que falta.
+
+**Lo único que sí conviene resolver antes del push no es técnico:** la revisión visual de la
+hoja sigue pendiente. Desplegar antes de que alguien la haya mirado significa que el primer
+par de ojos sobre el diferenciador del proyecto serán los de un visitante.
 
 Y una condición previa que no es técnica: **la revisión visual de la hoja sigue pendiente.**
 Desplegar antes de que alguien la haya mirado significa que el primer par de ojos sobre el
