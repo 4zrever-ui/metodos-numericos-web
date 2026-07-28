@@ -561,6 +561,47 @@ existentes tocados). `evaluarFormula`, `referenciasDe` y `compararFormulas`.
   `0.00001` del criterio de convergencia; y encadenar el reemplazo de operadores convertía el
   `!==` recién creado en `!======`. Hay un caso de prueba para cada uno.
 
+**Paso 1 — estado del módulo: la deuda de FASE 1, saldada (2026-07-28).**
+Ahora lo que el estudiante escribe sobrevive al cambio de pestaña.
+- `src/context/moduloContexto.js` (NUEVO) — los dos contextos y el hook `useEstadoModulo`.
+  `src/context/ModuloProvider.jsx` (NUEVO) — sólo el proveedor. **Van separados porque ESLint
+  (`react-refresh/only-export-components`) rechaza que un `.jsx` exporte a la vez un
+  componente y un hook**; el primer intento, con todo junto, dio error.
+- **Dos contextos a propósito:** el valor cambia en cada actualización, pero el actualizador
+  de `useState` es estable. Separarlos evita que los setters cambien de identidad en cada
+  render y hagan churn en los `useCallback` que ya existen dentro de la calculadora.
+- **El diseño busca el diff mínimo**, porque `CalcularPage` carga nueve bugs verificados en
+  vivo: `useEstadoModulo(clave, inicial)` devuelve **el mismo par que `useState`**, así que
+  migrar un estado es cambiar UNA línea y **ninguno de los 33 usos de `equation` se toca**.
+  Es "mover, no reescribir", como en FASE 1. Sin proveedor alrededor se comporta como
+  `useState`, de modo que el componente sigue funcionando aislado.
+- **Alcance acordado:** al módulo van la ecuación, el método, los parámetros manuales, el
+  resultado, el aviso, los autoParams y las raíces del gráfico. Se quedan **locales** lo
+  transitorio (cargando, error de red, banner de cold-start, panel desplegado) y **todo el
+  bloque de "Resolver todos"**, que es pesado y se recalcula.
+- Ficheros existentes tocados: `ModuloLayout.jsx` (+8/−2, envuelve el `<Outlet/>`) y
+  `CalcularPage.jsx` (**+18/−7, un solo bloque**). Diff mostrado y aprobado antes de aplicarlo.
+
+**Verificación en navegador (batería de regresión, dev server + backend de Render):**
+
+| Prueba | Resultado |
+|---|---|
+| **La ecuación sobrevive** Calcular → Aprender → Calcular | ✅ `cos(x) - x` intacta; el método también |
+| **El resultado sobrevive** al navegar | ✅ raíz 2.094551482 sigue ahí |
+| **G3** — cambiar ecuación limpia resultados | ✅ y **no resucita** al volver a navegar |
+| **G1** — encuadre de `sin(x)-0.5` | ✅ **77 % del alto, 100 % del ancho** — el baseline exacto |
+| **G8** — último gana | ✅ consulta abandonada no deja resultado rancio; la nueva da 0.7390851332 |
+| Consola | ✅ 0 errores (con búfer limpio) |
+
+**G4 no se pudo reproducir y conviene decirlo:** su síntoma exige que Render esté dormido, y
+estaba caliente. Lo que sí es verificable: **`waking` NO se migró** —sigue siendo `useState`
+local— así que el camino de código del banner no lo toca este cambio. Igual `reqIdRef` (G8),
+que es una ref y tampoco se tocó.
+
+**Nota de método:** los dos errores de consola que aparecieron (`Failed to reload
+ModuloContext.jsx`) eran **entradas antiguas del búfer**, del momento en que se borró ese
+archivo al separarlo en dos. Se confirmó abriendo el panel con el búfer limpio: cero errores.
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
   pero con fondo oscuro hardcodeado.
@@ -762,6 +803,8 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
 **Deuda técnica:**
 - Optimización futura: cargar KaTeX de forma diferida (lazy load) para recuperar el
   peso inicial del bundle (~260 kB extra). No urgente.
+- ✅ **SALDADA en FASE 3, paso 1** (2026-07-28) — ver §5. Lo que sigue queda como registro de
+  la deuda y de por qué su premisa original era falsa (H2, caso 3).
 - **Estado no compartido entre pestañas (deuda de FASE 1 → resolver en FASE 3).**
   Al navegar de Calcular a Aprender/Practicar, `CalcularPage` se desmonta y pierde todo
   su estado (ecuación, parámetros, resultados, tabla); al volver, arranca en blanco con

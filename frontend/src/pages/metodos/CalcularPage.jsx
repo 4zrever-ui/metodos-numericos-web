@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import "../../App.css";
 import { normalizeMathInput, normalizationPreview } from "../../mathNotation";
 import { API } from "../../api";
+import { useEstadoModulo } from "../../context/moduloContexto.js";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
@@ -774,22 +775,31 @@ function Teoria({ result }) {
 
 // ── App principal ─────────────────────────────────────────────────────────────
 export default function CalcularPage() {
-  // Estado del flujo individual (sin cambios)
-  const [equation, setEquation]         = useState("x^3 - 2*x - 5");
-  const [method, setMethod]             = useState("newton");
-  const [manualParams, setManualParams] = useState({});
+  // Estado del flujo individual.
+  //
+  // Lo que el estudiante ESCRIBE y lo que ve como respuesta actual vive en el
+  // módulo (`useEstadoModulo`), así que sobrevive al cambio de pestaña — es la
+  // deuda que FASE 1 dejó abierta. Lo transitorio (cargando, errores de red,
+  // banner de cold-start, panel desplegado) se queda local: son estados en
+  // vuelo que no tiene sentido conservar al volver.
+  //
+  // `useEstadoModulo` devuelve el mismo par que `useState`, así que la
+  // migración es una línea por estado y NINGÚN uso posterior cambia.
+  const [equation, setEquation]         = useEstadoModulo("equation", "x^3 - 2*x - 5");
+  const [method, setMethod]             = useEstadoModulo("method", "newton");
+  const [manualParams, setManualParams] = useEstadoModulo("manualParams", {});
   const [showParams, setShowParams]     = useState(false);
-  const [result, setResult]             = useState(null);
+  const [result, setResult]             = useEstadoModulo("result", null);
   const [error, setError]               = useState(null);
-  const [notice, setNotice]             = useState(null);
+  const [notice, setNotice]             = useEstadoModulo("notice", null);
   const [loading, setLoading]           = useState(false);
   const [waking, setWaking]             = useState(false); // banner cold-start de Render
 
   // Parámetros automáticos calculados por el backend (para mostrar como placeholder)
-  const [autoParams, setAutoParams]     = useState({});
+  const [autoParams, setAutoParams]     = useEstadoModulo("autoParams", {});
 
   // Raíces para el gráfico (se actualizan con /params y con cada resolve)
-  const [graphRoots, setGraphRoots]     = useState([]);
+  const [graphRoots, setGraphRoots]     = useEstadoModulo("graphRoots", []);
 
   // Pide al backend los parámetros auto cada vez que cambia la ecuación
   const fetchAutoParams = async (eq) => {

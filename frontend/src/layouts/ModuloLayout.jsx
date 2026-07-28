@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 
+import ModuloProvider from "../context/ModuloProvider.jsx";
+
 /**
  * Cascarón del módulo "Métodos Numéricos": su título y las tres pestañas de la
  * progresión pedagógica (comprende → construye → verifica). Las pestañas viven
@@ -17,7 +19,9 @@ const PESTANAS = [
 
 export default function ModuloLayout() {
   return (
-    <>
+    // El proveedor envuelve al <Outlet/>, no a cada página: así el estado del
+    // módulo sobrevive al cambio de pestaña, que es justo lo que se perdía.
+    <ModuloProvider>
       <div className="modulo-header">
         <h1>Métodos Numéricos</h1>
         <p className="subtitle">Resolución de ecuaciones no lineales f(x) = 0</p>
@@ -39,6 +43,6 @@ export default function ModuloLayout() {
       </nav>
 
       <Outlet />
-    </>
+    </ModuloProvider>
   );
 }
