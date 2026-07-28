@@ -729,6 +729,44 @@ Se añadió el veredicto `coincide-por-casualidad`, con su mensaje propio para e
 - **Pendiente de verificación en navegador:** el componente todavía no está montado en ninguna
   página, así que lo comprobado es su lógica, no su pintado. Se verifica al integrarlo (paso 6).
 
+**Paso 6 — ejercicios curados e integración de Practicar (2026-07-28). FASE 3 en pie.**
+- `src/content/ejercicios.js` (NUEVO) — 4 ejercicios fijos (D1), mismo patrón que
+  `gxPresets.js`: dos de Newton y dos de Bisección, con su enunciado. **Las fórmulas
+  correctas NO están aquí** — las sirve el backend; duplicarlas habría creado la segunda
+  fuente de verdad que `test_formula_specs.py` existe para evitar.
+- `src/pages/metodos/PracticarPage.jsx` (MODIFICADO, +75/−26) — el esqueleto de FASE 1 pasa a
+  selector de ejercicios + hoja. **`cargando` se DERIVA** de a qué ejercicio pertenece la
+  respuesta, en vez de guardarse: así no hay `setState` síncrono en el efecto (React 19 lo
+  marca como error) y, de regalo, una respuesta que llega tarde no puede pintarse sobre otro
+  ejercicio — el mismo "último gana" de G8.
+
+**SEGUNDO HALLAZGO sobre D3, y más grave que el primero.** Ya en el navegador, se escribió el
+criterio del intervalo **al revés** —`IF(E2*F2<0,B2,D2)` en vez de `...,B2,C2)`— y el sistema
+respondió **"Correcta."**. Causa: con los datos reales `E2*F2 < 0` es cierto, así que **sólo se
+evalúa la rama verdadera** y la falsa nunca se compara. Y los escenarios de `validarCelda`
+multiplicaban **todas** las celdas por el mismo factor, con lo que el producto jamás cambiaba
+de signo — ni con −1, porque (−E)(−F) sigue siendo negativo.
+**Arreglo:** cada celda se sacude por SEPARADO, con un factor distinto por celda y por
+escenario. Ahora el producto cambia de signo, la condición se invierte y la rama falsa queda
+expuesta. **Al arreglarlo se rompió el caso anterior** (el del umbral): el reparto con paso 3
+saltaba los factores pequeños cuando la fórmula referencia una sola celda. Reparto corregido a
+`(escenario + j·4) mod n`, con un escenario por factor. **Los dos casos pasan a la vez.**
+
+- **Verificación: 40/40** en `smoke6` y **en navegador contra el backend local**, en claro y
+  oscuro: Newton carga con 6 huecos y al completarlos la hoja se despliega de 2 a 7 filas con
+  `Convergencia = "SI"`; el criterio invertido se marca en rojo con el mensaje *"Da el
+  resultado correcto en esta fila, pero no es la misma fórmula"*; la forma equivalente
+  `B3-C3/D3` se acepta; cambiar de ejercicio recarga y resetea (0 de 9). Contraste texto/fondo
+  16.25 en oscuro y 20.15 en claro. Consola 0 errores (pestaña nueva). Suite backend 162/162.
+- **Cómo se verificó, porque importa:** el endpoint es nuevo y **Render no lo tiene**, así que
+  se levantó el backend local y se repuntó `api.js` a `127.0.0.1:8000` **sólo durante la
+  prueba**; `api.js` quedó restaurado a Render y NO entra en el commit.
+
+⚠️ **AVISO PARA EL PUSH:** subir esto sin desplegar el backend deja la pestaña Practicar
+pidiendo `/practicar/plantilla` a un Render que devuelve 404. El frontend lo enseña como
+"No se pudo contactar con el servidor", que es honesto pero inútil. **El backend debe
+desplegarse antes o a la vez que el frontend.**
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - ~~Canvas del gráfico adaptable claro/oscuro~~ — ✅ **HECHO en FASE 3, paso 2b** (2026-07-28).
 - Aviso de "raíz exacta" (cuando x₀ ya es la raíz, iters=0).

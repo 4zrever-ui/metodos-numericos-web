@@ -77,10 +77,15 @@ export function celdasAEscribir(hoja, k) {
 }
 
 // Factores con los que se sacuden los valores de las celdas referenciadas.
-// Cubren órdenes de magnitud muy distintos a propósito: el caso que obligó a
-// esto fue una tolerancia mal escrita, y para pillarla hace falta un valor que
-// caiga ENTRE los dos umbrales.
-const FACTORES = [0.5, 2, 1e-3, 1e-6, 1e3, -1, 0.05];
+// Cubren órdenes de magnitud muy distintos a propósito: el primer caso que
+// obligó a esto fue una tolerancia mal escrita, y para pillarla hace falta un
+// valor que caiga ENTRE los dos umbrales.
+const FACTORES = [0.5, 2, 1e-3, 1e-6, 1e3, -1, 0.05, -0.3, 7];
+
+// Un escenario por factor: así, con una fórmula que referencia UNA sola celda,
+// se recorren todos. (Un reparto con paso 3 los saltaba y dejaba escapar de
+// nuevo el caso del umbral, que necesita un factor pequeño concreto.)
+const N_ESCENARIOS = FACTORES.length;
 
 /**
  * Corrige la fórmula que ha escrito el alumno.
@@ -95,6 +100,16 @@ const FACTORES = [0.5, 2, 1e-3, 1e-6, 1e3, -1, 0.05];
  * algún escenario discrepan, no son equivalentes. Sigue siendo corrección por
  * valor —dos formas distintas de escribir lo mismo siguen valiendo—, sólo que
  * con más de un dato.
+ *
+ * **Cada celda se sacude por SEPARADO, y esto es lo que hace que funcione.**
+ * La primera versión multiplicaba todas las celdas por el mismo factor, y dejó
+ * pasar el criterio del intervalo de Bisección escrito al revés
+ * (`IF(E2*F2<0,B2,D2)` en lugar de `...,B2,C2)`): con los datos reales
+ * `E2*F2 < 0` es cierto, así que sólo se toma la rama verdadera y la falsa
+ * nunca llega a compararse — y escalar E2 y F2 a la vez no cambia el signo del
+ * producto, ni siquiera con −1, porque (−E)(−F) sigue siendo negativo. Con
+ * factores distintos por celda el producto sí cambia de signo, la condición se
+ * invierte y la rama falsa queda expuesta.
  */
 export function validarCelda(hoja, ref, escrita, valores) {
   const canonica = formulaCanonica(hoja, ref);
@@ -104,16 +119,18 @@ export function validarCelda(hoja, ref, escrita, valores) {
   if (base.veredicto !== "correcta") return { ...base, canonica };
 
   const refs = [...new Set(referenciasDe(canonica))];
-  for (const factor of FACTORES) {
+  const numericas = refs.filter((r) => typeof valores[r] === "number" && Number.isFinite(valores[r]));
+  if (numericas.length === 0) return { veredicto: "correcta", canonica };
+
+  for (let escenario = 0; escenario < N_ESCENARIOS; escenario++) {
     const sacudidos = { ...valores };
-    let algunoCambiado = false;
-    for (const r of refs) {
-      if (typeof sacudidos[r] === "number" && Number.isFinite(sacudidos[r])) {
-        sacudidos[r] = sacudidos[r] * factor;
-        algunoCambiado = true;
-      }
-    }
-    if (!algunoCambiado) break;
+    numericas.forEach((r, j) => {
+      // Reparto determinista: cada celda recibe un factor distinto, y el reparto
+      // cambia con el escenario. Sin aleatoriedad, para que un fallo se pueda
+      // reproducir tal cual.
+      const factor = FACTORES[(escenario + j * 4) % FACTORES.length];
+      sacudidos[r] = valores[r] * factor;
+    });
 
     const cmp = compararFormulas(escrita, canonica, sacudidos);
     // Si la canónica no evalúa con esos valores, el escenario no dice nada.
@@ -124,7 +141,7 @@ export function validarCelda(hoja, ref, escrita, valores) {
         canonica,
         obtenido: cmp.obtenido,
         esperado: cmp.esperado,
-        factor,
+        escenario,
       };
     }
   }

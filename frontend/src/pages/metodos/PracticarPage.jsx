@@ -1,34 +1,92 @@
+import { useEffect, useState } from "react";
+
+import "../../practicar.css";
+import HojaCalculo from "../../components/HojaCalculo.jsx";
+import { EJERCICIOS } from "../../content/ejercicios.js";
+import { API } from "../../api";
+
 /**
- * Esqueleto de FASE 1. El contenido llega en FASE 3 (VISION_PLATAFORMA.md §3).
- * Es el diferenciador único del proyecto: el constructor de fórmulas paso a paso.
+ * Pestaña PRACTICAR — "constrúyelo tú mismo" (VISION_PLATAFORMA.md §3).
+ *
+ * FASE 3: el constructor de fórmulas paso a paso, que es el diferenciador del
+ * proyecto. El alumno elige un ejercicio, escribe las fórmulas de la fila de
+ * iteración y el sistema le corrige por valor, le explica cada columna y le
+ * enseña la correcta si falla.
+ *
+ * La plantilla de fórmulas viene del backend (`/practicar/plantilla`), no de un
+ * catálogo del frontend: es la MISMA fuente que genera el Excel descargable, y
+ * `test_formula_specs.py` fija que no diverjan.
  */
 export default function PracticarPage() {
+  const [idActivo, setIdActivo] = useState(EJERCICIOS[0].id);
+  // Un solo estado con el id al que pertenece la respuesta. Así "cargando" se
+  // DERIVA (no hay `setState` síncrono dentro del efecto, que React 19 marca
+  // como error) y de paso una respuesta que llega tarde no puede pintarse sobre
+  // otro ejercicio: mismo patrón de "último gana" que G8 en la calculadora.
+  const [resultado, setResultado] = useState(null);
+
+  const ejercicio = EJERCICIOS.find((e) => e.id === idActivo) ?? EJERCICIOS[0];
+  const cargando = resultado?.id !== ejercicio.id;
+
+  useEffect(() => {
+    let vigente = true;
+
+    (async () => {
+      try {
+        const r = await fetch(`${API}/practicar/plantilla`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ equation: ejercicio.equation, metodo: ejercicio.metodo, filas: 7 }),
+        });
+        const json = await r.json();
+        if (!vigente) return;
+        setResultado(
+          json.error ? { id: ejercicio.id, error: json.error } : { id: ejercicio.id, datos: json }
+        );
+      } catch {
+        // El backend hiberna en Render; se dice y ya, sin inventar reintentos.
+        if (vigente) {
+          setResultado({
+            id: ejercicio.id,
+            error: "No se pudo contactar con el servidor. Si acaba de despertar, inténtalo de nuevo en unos segundos.",
+          });
+        }
+      }
+    })();
+
+    return () => { vigente = false; };
+  }, [ejercicio]);
+
   return (
-    <section className="pagina-esqueleto">
-      <h2>Practicar — constrúyelo tú mismo</h2>
-      <p className="pagina-esqueleto-nota">Sección en construcción (Fase 3).</p>
-
-      <p>Aquí vivirá el <strong>constructor de fórmulas paso a paso</strong>:</p>
-      <ul>
-        <li>
-          Una <strong>hoja de cálculo simulada</strong> —propia, no un Excel
-          embebido— donde escribes las fórmulas de cada método y el sistema te
-          dice si están bien, te marca los errores y te explica por qué.
-        </li>
-        <li>
-          Acompañamiento en pantalla para que te enfoques en construir y no en
-          calcular a mano: el gráfico de la función junto a la derivada, la
-          segunda derivada y el g(x) predeterminados.
-        </li>
-        <li>
-          <strong>Ejercicios propuestos que rotan cada semana</strong>, de un
-          banco que avanza por fecha.
-        </li>
-      </ul>
-
-      <p className="pagina-esqueleto-nota">
-        Excel real no guía ni corrige; esta simulación sí. Ese es el punto.
+    <section className="practicar">
+      <p className="practicar-intro">
+        Aquí no se calcula: se <strong>construye</strong>. Escribe la fórmula de
+        cada celda de la fila de iteración, como lo harías en una hoja de cálculo.
+        El sistema comprueba que haga lo mismo que la correcta —da igual cómo la
+        escribas mientras el resultado sea el mismo— y te explica qué hace cada columna.
       </p>
+
+      <nav className="practicar-selector" aria-label="Ejercicios">
+        {EJERCICIOS.map((e) => (
+          <button
+            key={e.id}
+            type="button"
+            onClick={() => setIdActivo(e.id)}
+            aria-current={e.id === idActivo ? "true" : undefined}
+            className={e.id === idActivo ? "practicar-ejercicio practicar-ejercicio--activo" : "practicar-ejercicio"}
+          >
+            {e.etiqueta}
+            <small>{e.metodoLabel}</small>
+          </button>
+        ))}
+      </nav>
+
+      <p className="practicar-aviso">{ejercicio.enunciado}</p>
+
+      {cargando && <p>Pidiendo la plantilla del método…</p>}
+      {resultado?.error && <p className="practicar-aviso">{resultado.error}</p>}
+
+      {resultado?.datos?.hoja && <HojaCalculo hoja={resultado.datos.hoja} filaEditable={1} />}
     </section>
   );
 }
