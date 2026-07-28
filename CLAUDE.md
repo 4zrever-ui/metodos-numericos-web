@@ -977,6 +977,27 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
 **Hallazgos con entrada propia (NO son deuda técnica). Los abiertos esperan decisión de fase;
 los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin saberlo.**
 
+- **H6 — ABIERTO: hay 12 documentos en `docs/` que este CLAUDE.md ignora, y al menos uno ya
+  miente.** Descubierto al guardar el plan de despliegue: yo dije que meterlo "estrenaría
+  carpeta de documentación" y **era falso** — `docs/` existe desde antes y está trackeada.
+  **Los datos:** 12 archivos `.md` trackeados, último commit que los tocó **2026-06-06**
+  (`50e9583`), es decir **anterior** a la consolidación documental de FASE 0 (`5d388fd`, que
+  movió los .md viejos a `_historico/` y declaró este CLAUDE.md fuente única). **Ni CLAUDE.md
+  ni VISION_PLATAFORMA.md mencionan `docs/` una sola vez.** Se quedó fuera de aquella limpieza.
+  **Ya contradice el código:** `docs/RESUMEN_PROYECTO.md` describe la interfaz como "una sola
+  página (`App.jsx`)" y lista `frontend/src/App.jsx` como la interfaz completa — ese archivo
+  **no existe** desde FASE 1 (se movió a `pages/metodos/CalcularPage.jsx`). Quien lo lea sin
+  saberlo se lleva una idea falsa de la arquitectura, que es exactamente el problema que la
+  regla 8 existe para evitar, y la misma familia que el CLAUDE.md obsoleto que se borró al
+  empezar esta sesión.
+  **NO revisado:** los otros 11 archivos. Podrían estar bien, obsoletos, o a medias; sólo se
+  hizo una comprobación puntual.
+  **Estado: sin tocar, esperando decisión del director.** Las opciones evidentes son moverlos
+  a `_historico/`, marcarlos con una cabecera de "documento histórico, ver CLAUDE.md", o
+  revisarlos uno a uno. **No es decisión mía**, y borrar documentación ajena aún menos.
+  **Nota:** `docs/PLAN_DESPLIEGUE.md` (2026-07-28) sí está al día — queda en una carpeta cuyo
+  resto de contenido está sin auditar, y conviene saberlo.
+
 - **H5 — CERRADO: Practicar se quedaba EN BLANCO Y EN SILENCIO contra el backend desplegado,
   y yo había afirmado lo contrario.** Descubierto en la regresión completa, apuntando a Render.
   **Qué pasaba:** `/practicar/plantilla` no existe en el backend desplegado, así que Render
