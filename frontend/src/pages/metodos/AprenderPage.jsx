@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "../../aprender.css";
+import CobwebGraph from "../../components/CobwebGraph.jsx";
 import TeoriaMetodo from "../../components/TeoriaMetodo.jsx";
 import { FAMILIAS, TEORIA } from "../../content/teoriaMetodos.js";
 
@@ -50,16 +51,7 @@ export default function AprenderPage() {
       </nav>
 
       <TeoriaMetodo clave={clave}>
-        {ficha.demo === "cobweb" && (
-          <div className="ficha-demo-pendiente">
-            <span className="ficha-etiqueta">Demostración interactiva</span>
-            <p>
-              Aquí va el <strong>diagrama de telaraña</strong>: g(x), la recta
-              y = x y la escalera de iteraciones que converge —o escapa— según la
-              g(x) que elijas. Llega en el siguiente paso de esta fase.
-            </p>
-          </div>
-        )}
+        {ficha.demo === "cobweb" && <CobwebGraph />}
       </TeoriaMetodo>
     </section>
   );

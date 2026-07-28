@@ -194,11 +194,177 @@
   margin-bottom: 24px;
 }
 
-/* ── Hueco de la demostración interactiva (llega en el paso 4) ────────────── */
+/* ── Hueco de la demostración interactiva (para las familias sin demo aún) ── */
 
 .ficha-demo-pendiente {
   border: 1px dashed var(--border);
   border-radius: 8px;
   padding: 18px;
   color: var(--text);
+}
+
+/* ── Telaraña (cobweb) ────────────────────────────────────────────────────── */
+
+.cobweb {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  margin-top: 8px;
+}
+
+.cobweb-guia {
+  max-width: 68ch;
+  margin-bottom: 18px;
+}
+
+.cobweb-controles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.cobweb-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.cobweb-campo--ancho {
+  margin-bottom: 18px;
+}
+
+.cobweb-campo > span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+
+.cobweb-campo select,
+.cobweb-campo input {
+  font: inherit;
+  font-size: 15px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 40%, var(--bg));
+  background: var(--bg);
+  color: var(--text-h);
+  min-width: 200px;
+}
+
+.cobweb-campo--ancho input {
+  width: 100%;
+  font-family: var(--mono);
+}
+
+.cobweb-input--malo {
+  border-color: #e06c6c;
+}
+
+/* Reordenamientos: cada botón es una g(x) con su |g'| medido al lado. */
+
+.cobweb-gxs {
+  margin-bottom: 18px;
+}
+
+.cobweb-gx {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: inherit;
+  background: none;
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 28%, var(--bg));
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0 8px 8px 0;
+  cursor: pointer;
+  color: var(--text-h);
+}
+
+.cobweb-gx:hover {
+  border-color: var(--accent-border);
+}
+
+.cobweb-gx--activo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.cobweb-marca {
+  font-size: 12px;
+  font-family: var(--mono);
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.cobweb-marca--atrae { color: var(--accent); }
+.cobweb-marca--repele { color: #e06c6c; }
+
+.cobweb-nota {
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.cobweb-lienzo {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 30%, var(--bg));
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.cobweb-pasos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.cobweb-pasos button {
+  font: inherit;
+  font-size: 14px;
+  min-width: 40px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 30%, var(--bg));
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.cobweb-pasos button:hover:not(:disabled) {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.cobweb-pasos button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cobweb-contador {
+  font-size: 13px;
+  font-family: var(--mono);
+  opacity: 0.8;
+}
+
+.cobweb-veredicto {
+  border-left: 3px solid var(--border);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 10px;
+}
+
+.cobweb-veredicto--bien { border-left-color: var(--accent); background: var(--accent-bg); }
+.cobweb-veredicto--mal { border-left-color: #e06c6c; background: rgba(224, 108, 108, 0.1); }
+.cobweb-veredicto--aviso { border-left-color: color-mix(in srgb, var(--text) 45%, var(--bg)); }
+
+.cobweb-medida {
+  font-size: 14px;
+  opacity: 0.9;
 }

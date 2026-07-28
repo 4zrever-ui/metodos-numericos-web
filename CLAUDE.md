@@ -5,7 +5,7 @@
 > previas de CLAUDE.md). Si algo aquí contradice a otro .md viejo, manda éste.
 >
 > Claude Code lo lee automáticamente al abrir el proyecto.
-> Última actualización: 2026-07-27 (FASE 2 en curso: pasos 1–3; Aprender ya tiene teoría real).
+> Última actualización: 2026-07-27 (FASE 2: pasos 1–4; teoría + telaraña interactiva vivas).
 
 ---
 
@@ -35,7 +35,7 @@ frontend/src/
 │                                  fixedPoint.js  |g′|, órbitas y segmentos de la telaraña
 ├── content/              (FASE 2) gxPresets.js ecuaciones de ejemplo con sus g(x)
 │                                  teoriaMetodos.js  las 14 fichas + FAMILIAS
-├── components/           (FASE 2) Katex.jsx · TeoriaMetodo.jsx
+├── components/           (FASE 2) Katex.jsx · TeoriaMetodo.jsx · CobwebGraph.jsx
 ├── aprender.css          (FASE 2) estilos de la pestaña Aprender
 ├── layouts/
 │   ├── PlataformaLayout.jsx   cabecera NumériCa + .app + warm-up de G5
@@ -300,6 +300,70 @@ Se prefirió remitir a la tabla de iteraciones antes que afirmar un orden no ver
   `CalcularPage`; los archivos nuevos no añaden ninguno). `npm run build` OK.
   Coste en bundle: JS 521→538 kB (gzip 161→166), CSS 42→44 kB.
 - Baterías de los pasos 1 y 2 sin tocar: 52/52 y 35/35.
+
+**Paso 4 — La telaraña (2026-07-27). La pieza estrella de FASE 2.**
+- `src/components/CobwebGraph.jsx` (NUEVO) — cobweb interactivo: selector de ecuación,
+  botones de reordenamiento con su **|g′| medido** al lado, campo de g(x) **editable**,
+  x₀ editable, paso a paso (◀ ▶), animación, reset y veredicto en prosa.
+  Honra lo acordado: **escala isométrica** (`isoView`, scaleX === scaleY, con el MISMO rango
+  en X e Y para que la diagonal y = x sea literalmente la diagonal del recuadro), **itera en
+  cliente** con tope de 30 pasos y corte por explosión, **dibuja y explica** la divergencia en
+  vez de ocultarla, y toma los g(x) de `gxPresets.js` con la paleta de `plotCore.js`.
+- `src/aprender.css` — bloque de estilos de la telaraña (+168 líneas). `plataforma.css` y
+  `App.css` siguen sin tocarse.
+- `src/pages/metodos/AprenderPage.jsx` (MODIFICADO, **+2/−10**): el marcador del paso 3 pasa a
+  `{ficha.demo === "cobweb" && <CobwebGraph />}`. El archivo existente menos tocado de la fase.
+  El diff se verificó ANTES de aplicarlo montando el componente en temporal y devolviendo el
+  archivo con `git checkout`, para que lo mostrado fuese el diff real y no una promesa.
+
+**Verificación (sin capturas de pantalla — ver limitación abajo).** Se auditaron los píxeles
+del canvas clasificándolos por color: **95–97 % de los píxeles de la órbita caen en tramos
+rectos verticales u horizontales**, o sea que lo dibujado es de verdad una escalera contra la
+diagonal y no una curva cualquiera. Seis casos, **en claro y en oscuro**:
+
+| Caso | Resultado | Trazos |
+|---|---|---|
+| `cbrt(2x+5)` | converge a 2.0945 en 5 iter | 10/10 |
+| `(x³−5)/2` | **escapa** (681 px en rojo) | 12/12 |
+| `5/(x²−2)` | ni cierra ni escapa: ciclo | 60/60 |
+| `cos(x)` | converge a 0.7391 en 23 iter (espiral) | 46/46 |
+| `e^(−x)` | converge a 0.5671 en 14 iter (espiral) | 28/28 |
+| `x²−3x+2` desde 0.5 | converge a 0.9998 en 18 iter | 36/36 |
+
+Más los límites: g(x) inválida (aviso + sin órbita), x₀ no numérico (campo marcado), y g(x)
+escrita a mano (`sqrt(2x+5)` → 3.4495, avisando de que |g′| se midió en x = 2 y no en la raíz).
+ESLint `src` **0 errores**, `npm run build` OK (JS 538→551 kB, CSS 44→47 kB).
+
+**Los tres fallos encontrados y corregidos durante la verificación** (los tres habrían pasado
+inadvertidos a ojo — quedan escritos porque son la clase de error que arruina esta pieza):
+1. **Media telaraña sin dibujar (unidades trazos vs iteraciones).** El contador lo delató:
+   *"30 / 60 trazos"*. `paso` se cuenta en **TRAZOS** y `MAX_PASOS` en **ITERACIONES**, y
+   `cobwebPath` genera **dos trazos por iteración**; inicializar `paso = MAX_PASOS` dibujaba
+   la mitad de las órbitas largas. En el caso convergente no se notaba porque 30 > 18 y
+   quedaba recortado por el `Math.min`. Arreglo: `paso === null` significa "la órbita entera",
+   eliminando la confusión de unidades en vez de parchear el número.
+2. **"No se ha cerrado" en órbitas que sí convergen (tolerancia vs tope de iteraciones).**
+   Con el tope pactado de 30 pasos, una convergencia lineal de |g′| ≈ 0.67 (`cos x`,
+   `x²−3x+2`) necesita ~40 iteraciones para 7 cifras, así que el veredicto declaraba
+   "no se ha cerrado" en órbitas visiblemente pegadas al punto fijo. Se respetó el tope y se
+   bajó la tolerancia a **1e-4**, que es ~1/100 de píxel en un encuadre típico: invisible.
+   **Consecuencia registrada:** con esa tolerancia mostrar 9 decimales de la raíz **sería
+   falso** (en convergencia lineal el error real es varias veces el último paso), así que el
+   veredicto muestra **4 decimales** y remite a Calcular para la precisión del método. Se ve
+   en `x²−3x+2`, que reporta honestamente 0.9998 y no 1.
+3. **Canvas con los colores del tema anterior.** Al cambiar de tema el lienzo se quedaba
+   blanco sobre página oscura. **No era del componente:** se registró un listener propio
+   directamente en la página y también recibió **cero** eventos, lo que prueba que el emulador
+   CDP no despacha el `change` de `matchMedia` aunque `mq.matches` sí cambie (un navegador real
+   sí lo despacha). Aun así se reforzó con `focus` y `visibilitychange` —sin temporizadores—
+   porque un lienzo con la paleta equivocada es un fallo muy visible; verificado que el fondo
+   pasa de blanco obsoleto a `rgb(22,23,29)`.
+
+**Limitación de la verificación (importante):** **no hay capturas de pantalla** de ninguna
+parte de FASE 2. El panel del navegador debe estar visible para que la página componga frames
+y no lo estaba, así que todo lo anterior es **medición del DOM y de los píxeles del canvas**,
+no inspección visual. Queda comprobado *qué* se dibuja y *dónde*; el juicio estético (grosor
+del trazo, ritmo de la animación, si el punto fijo se pierde sobre la rejilla) es del director.
 
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
