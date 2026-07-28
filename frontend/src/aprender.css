@@ -263,6 +263,28 @@
   border-color: #e06c6c;
 }
 
+/* Cuando la g(x) activa es la escrita a mano, el campo lo dice: si no, la
+ * pantalla enseña los reordenamientos de una ecuación mientras itera otra cosa. */
+.cobweb-campo--activa > span {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.cobweb-campo--activa input {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.cobweb-aviso-personalizada {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-bg);
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 14px;
+  max-width: 68ch;
+}
+
 /* Reordenamientos: cada botón es una g(x) con su |g'| medido al lado. */
 
 .cobweb-gxs {

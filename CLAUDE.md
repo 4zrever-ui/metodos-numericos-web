@@ -359,6 +359,31 @@ inadvertidos a ojo — quedan escritos porque son la clase de error que arruina 
    porque un lienzo con la paleta equivocada es un fallo muy visible; verificado que el fondo
    pasa de blanco obsoleto a `rgb(22,23,29)`.
 
+**G11 — el punto fijo marcado salía del preset, no de la g dibujada (corregido el mismo día).**
+Detectado por el director probando en el navegador, no por la auditoría de píxeles.
+- **La ruta de reproducción reportada NO era la real, y conviene que conste** para que nadie
+  la vuelva a investigar: se reportó como "escribo una g personalizada y luego cambio el
+  selector de ecuación". Reproducido paso a paso, **eso ya funcionaba**: `cambiarEcuacion`
+  repone la g del preset (`cbrt(2*x+5)` → `cos(x)`, veredicto y |g′| coherentes).
+- **El mecanismo real es el orden inverso:** elegir la ecuación y **luego** teclear. Ahí la g
+  personalizada manda —y debe mandar, escribir la propia es media lección— pero **nada en la
+  pantalla lo decía** (ningún botón de reordenamiento quedaba resaltado, sin más pista) y,
+  peor, el canvas seguía marcando el punto fijo en `preset.raiz`. Con `sqrt(2*x + 5)` sobre
+  x³−2x−5, el disco se pintaba en 2.0945: **un punto que ni está sobre la curva dibujada ni es
+  el límite de la órbita** (que converge a 3.4495).
+- **Misma familia que G3** (Fase 0): cambiar una entrada sin invalidar el estado que depende de ella.
+- **Arreglo, en la causa y no en el síntoma:** nuevo `puntoFijo`, derivado de **la g que se
+  dibuja**: la raíz del preset si esa g la deja quieta; si no, el límite al que llegó la órbita;
+  y si no hay ninguno, **no se marca nada**. El |g′| se mide ahí. Además la UI declara quién
+  manda: etiqueta "Tu g(x) — es la que está activa", campo resaltado y aviso explicando que el
+  punto fijo y el |g′| son los de su g, no los de la ecuación mostrada.
+- **Evidencia de que no es cosmético:** en ese caso el |g′| pasó de **0.3333** (= g′(2), el
+  sitio equivocado) a **0.2899** (= 1/√(2·3.4495+5), la derivada en el punto fijo real).
+- Verificado: cos(x)−x desde cero (coherente) · cúbica + g personalizada (aviso, |g′| correcto)
+  · cambio de preset con texto escrito (campo repuesto) · g que escapa `x²` desde x₀=2
+  (**sin marcador**, |g′|=4.0000 en x=2 con aviso de criterio local) · g inválida.
+  ESLint 0/0, `npm run build` OK.
+
 **Limitación de la verificación (importante):** **no hay capturas de pantalla** de ninguna
 parte de FASE 2. El panel del navegador debe estar visible para que la página componga frames
 y no lo estaba, así que todo lo anterior es **medición del DOM y de los píxeles del canvas**,

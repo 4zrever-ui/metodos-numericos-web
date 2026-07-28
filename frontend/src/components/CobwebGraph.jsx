@@ -70,23 +70,35 @@ export default function CobwebGraph() {
 
   const segmentos = useMemo(() => cobwebPath(orbita.points), [orbita]);
 
-  // |g'| se mide en la raíz cuando esa g realmente la deja quieta; si el alumno
-  // escribe otra g, se mide en x₀ y se dice dónde se midió. El criterio
-  // |g'| < 1 es local: prometerlo en el sitio equivocado sería mentir.
-  const analisis = useMemo(() => {
+  // ¿La g activa es uno de los reordenamientos de la ecuación elegida, o algo
+  // que ha escrito el alumno? Cambiar de ecuación ya repone la g del preset,
+  // pero al revés —elegir ecuación y luego teclear— la g puede no tener nada
+  // que ver con ella, y eso hay que decirlo en pantalla.
+  const esPersonalizada = !preset.gxs.some((g) => g.expr === gxTexto);
+
+  // El punto fijo que se marca tiene que ser el de la g QUE SE DIBUJA, no el de
+  // la ecuación del selector. Antes se marcaba `preset.raiz` siempre: con una g
+  // personalizada eso ponía un punto que ni está sobre la curva ni es el límite
+  // de la órbita. Es la misma familia que G3 (estado dependiente sin invalidar).
+  const puntoFijo = useMemo(() => {
     const g = compileExpr(gxTexto);
-    let punto = x0Valido ? x0 : 0;
-    let enRaiz = false;
     if (g && preset && Number.isFinite(preset.raiz)) {
       const r = preset.raiz;
       const gr = g(r);
-      if (Number.isFinite(gr) && Math.abs(gr - r) < 1e-6) {
-        punto = r;
-        enRaiz = true;
-      }
+      if (Number.isFinite(gr) && Math.abs(gr - r) < 1e-6) return r;   // la g fija la raíz
     }
-    return { ...analyzeG(gxTexto, punto), enRaiz };
-  }, [gxTexto, x0, x0Valido, preset]);
+    // Si no, el único punto fijo que conocemos con certeza es al que llegó la órbita.
+    if (orbita.status === "convergió" && Number.isFinite(orbita.root)) return orbita.root;
+    return null;
+  }, [gxTexto, preset, orbita]);
+
+  // |g'| se mide en el punto fijo cuando lo conocemos; si no, en x₀, diciendo
+  // dónde. El criterio |g'| < 1 es local: prometerlo en el sitio equivocado
+  // sería mentir.
+  const analisis = useMemo(() => {
+    const punto = puntoFijo !== null ? puntoFijo : (x0Valido ? x0 : 0);
+    return { ...analyzeG(gxTexto, punto), enPuntoFijo: puntoFijo !== null };
+  }, [gxTexto, puntoFijo, x0, x0Valido]);
 
   const totalPasos = segmentos.length;
   const pasoVisible = paso === null ? totalPasos : Math.min(paso, totalPasos);
@@ -217,9 +229,11 @@ export default function CobwebGraph() {
       ctx.stroke();
     }
 
-    // El punto fijo (donde g corta la diagonal)
-    if (preset && Number.isFinite(preset.raiz)) {
-      const r = preset.raiz;
+    // El punto fijo (donde g corta la diagonal). Sale de `puntoFijo`, no del
+    // preset: con una g personalizada el corte está en otro sitio, y marcar el
+    // del preset sería señalar un punto que no está ni sobre la curva.
+    if (puntoFijo !== null) {
+      const r = puntoFijo;
       ctx.beginPath();
       ctx.arc(toScreenX(r), toScreenY(r), 5, 0, Math.PI * 2);
       ctx.fillStyle = pal.accent;
@@ -251,7 +265,7 @@ export default function CobwebGraph() {
       ctx.textAlign = "center";
       ctx.fillText("x₀", toScreenX(x0), toScreenY(0) + 20);
     }
-  }, [rango, gxTexto, orbita, segmentos, pasoVisible, preset, x0, x0Valido]);
+  }, [rango, gxTexto, orbita, segmentos, pasoVisible, puntoFijo, x0, x0Valido]);
 
   useEffect(() => { dibujar(); }, [dibujar]);
 
@@ -388,10 +402,21 @@ export default function CobwebGraph() {
         {gxActual && <p className="cobweb-nota">{gxActual.nota}</p>}
       </div>
 
-      <label className="cobweb-campo cobweb-campo--ancho">
-        <span>…o escribe la tuya</span>
+      <label className={esPersonalizada ? "cobweb-campo cobweb-campo--ancho cobweb-campo--activa" : "cobweb-campo cobweb-campo--ancho"}>
+        <span>
+          {esPersonalizada ? "Tu g(x) — es la que está activa" : "…o escribe la tuya"}
+        </span>
         <input type="text" value={gxTexto} onChange={(e) => cambiarGx(e.target.value)} spellCheck="false" />
       </label>
+
+      {esPersonalizada && (
+        <p className="cobweb-aviso-personalizada">
+          Estás iterando una g(x) tuya, que no es ninguno de los reordenamientos
+          de {preset.etiqueta} — por eso ninguno aparece resaltado arriba. El
+          punto fijo marcado en el gráfico y el |g′| son los de tu g(x), no los
+          de esa ecuación. Elige un reordenamiento para volver a ella.
+        </p>
+      )}
 
       <canvas ref={canvasRef} className="cobweb-lienzo" style={{ height: ALTO_LIENZO }} />
 
@@ -413,9 +438,9 @@ export default function CobwebGraph() {
         {analisis.ok ? (
           <>
             |g′| = <strong>{analisis.absGp.toFixed(4)}</strong>{" "}
-            {analisis.enRaiz ? "medido en la raíz" : `medido en x = ${analisis.at}`} →{" "}
+            {analisis.enPuntoFijo ? "medido en el punto fijo" : `medido en x = ${analisis.at}`} →{" "}
             {analisis.converges ? "menor que 1, el punto fijo atrae" : "mayor o igual que 1, el punto fijo repele"}.
-            {!analisis.enRaiz && " El criterio |g′| < 1 es local: fuera de la raíz es una pista, no una garantía."}
+            {!analisis.enPuntoFijo && " El criterio |g′| < 1 es local: fuera del punto fijo es una pista, no una garantía."}
           </>
         ) : (
           <>No se puede medir |g′| aquí ({analisis.reason}).</>
