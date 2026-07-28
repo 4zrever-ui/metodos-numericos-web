@@ -839,10 +839,14 @@ antes de declarar un bug de interacción, comprobar que el evento **llegó a dis
 8. **Comprobar caracteres de alfabetos ajenos antes de commitear documentación.** Se han
    colado tres veces —un ideograma CJK (U+63A7) y dos cirílicas dentro de la palabra "genera"
    (U+0433, U+0435)— en textos por lo demás en español; a simple vista no se distinguen.
-   (Se citan por código y no por el glifo a propósito: el detector no sabe distinguir un
-   ejemplo entrecomillado de un desliz, y marcaría esta misma línea.) El chequeo caza cirílico, CJK, hangul, kana, árabe, hebreo y devanagari, y
-   **no** prohíbe lo no-ASCII: tildes, ñ, π, √, ², ₊, ≈, ─ y → son del proyecto y deben pasar.
-   Herramienta y ubicación **pendientes de decidir con el director** (ver §7, deuda técnica).
+   Se ejecuta a mano: `python scripts/check_chars.py` (o pasándole un archivo o carpeta).
+   **No los caza ningún linter:** para ESLint y para pytest son texto dentro de un comentario
+   o de una cadena. El chequeo marca cirílico, CJK, hangul, kana, árabe, hebreo y devanagari, y
+   **no** prohíbe lo no-ASCII: tildes, ñ, π, √, ², ₊, ≈, ─ y → son del proyecto y pasan.
+   **De invocación manual a propósito** (decisión del director, 2026-07-28): no es un hook de
+   pre-commit y no bloquea commits; está para correrlo cuando se pida.
+   Una línea que contenga el marcador `chars-ok` se salta, para poder citar un glifo a
+   propósito — sin esa vía de escape, esta misma regla se marcaría a sí misma.
 9. **Este CLAUDE.md se actualiza ANTES de commitear el código.** Al terminar
    cualquier tarea (bug, feature o decisión) se anota aquí qué se hizo, el commit y
    el estado nuevo, en la misma tarea — no como paso posterior.
@@ -1082,17 +1086,14 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   sólo el campo de error propio deja pasar cualquier error HTTP. `fetchWithWake` y las
   llamadas de `CalcularPage` (`/params`, `/method/*`, `/excel/*`) **no se han auditado** con
   ese criterio. Es revisión, no rediseño; conviene hacerla antes de añadir más endpoints.
-- **Dónde vive el chequeo de caracteres ajenos (regla 6.8) — PREGUNTA ABIERTA.** Existe y
-  funciona: recorre el repo (93 archivos, 0 hallazgos hoy) y marca cirílico, CJK, hangul,
-  kana, árabe, hebreo y devanagari, dejando pasar todo lo que el proyecto sí usa. Hoy vive
-  **fuera del repo**, en el scratchpad de la sesión, así que **no sobrevive a la siguiente**.
-  Las opciones son: (a) un script en el repo, p. ej. `herramientas/caracteres.mjs`, invocable
-  a mano; (b) un paso más de `npm run lint`; (c) un hook de pre-commit. **Sin decidir**: mete
-  un archivo nuevo en un proyecto que hasta ahora no tiene carpeta de utilidades, y esa es una
-  decisión del director, no mía.
-  **Limitación conocida:** no distingue un glifo citado como ejemplo de uno colado por error,
-  así que la propia regla 6.8 tiene que nombrarlos por código (U+…) y no por el glifo. Si
-  algún día hace falta citarlos literalmente, habrá que añadir una marca de excepción.
+- ✅ **RESUELTO (2026-07-28): el chequeo de caracteres vive en `scripts/check_chars.py`.**
+  Decisión del director: **script invocable a mano, no hook de pre-commit** — que esté
+  disponible, no que bloquee commits. Estrena la carpeta `scripts/`.
+  La limitación que tenía (marcarse a sí mismo al citar un glifo como ejemplo) se resolvió con
+  un marcador de excepción por línea, así que la regla 6.8 ya puede nombrarlos como quiera.
+  **Verificado con un control negativo, no sólo con el caso limpio:** sobre un archivo con las
+  dos cirílicas de "genera" y un ideograma CJK, los caza los tres, los nombra
+  (`CYRILLIC SMALL LETTER GHE`…), salta la línea marcada y sale con código 1.
 - Optimización futura: cargar KaTeX de forma diferida (lazy load) para recuperar el
   peso inicial del bundle (~260 kB extra). No urgente.
 - ✅ **SALDADA en FASE 3, paso 1** (2026-07-28) — ver §5. Lo que sigue queda como registro de
