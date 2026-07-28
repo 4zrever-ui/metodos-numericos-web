@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from backend.excel.excel_generator import generate_single, generate_all, _has_real_roots
 from backend.excel.excel_templates import _panel_message
+from backend.excel.formula_specs import spec_serializable
 import io
 
 app = FastAPI(title="Métodos Numéricos API")
@@ -68,6 +69,39 @@ def get_params(data: dict):
             "gx":  str(p.gx_sympy) if p.gx_sympy is not None else None,
             "roots": p.roots_approx,
         }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/practicar/plantilla")
+def practicar_plantilla(data: dict):
+    """
+    Devuelve las fórmulas de un método COMO DATO, para el constructor de la
+    pestaña Practicar. Hasta ahora sólo existían dentro del .xlsx que genera
+    `/excel/*`, que viaja como binario.
+
+    Es aditivo: no toca ningún método ni las plantillas de Excel. La coincidencia
+    entre lo que devuelve y lo que la plantilla escribe de verdad la fija
+    `test/test_formula_specs.py`.
+    """
+    equation = _eq(data)
+    metodo = str(data.get("metodo") or "newton").strip()
+    try:
+        fila = int(data.get("fila") or 3)
+    except (TypeError, ValueError):
+        fila = 3
+
+    try:
+        eq = parse_equation(equation)
+        spec = spec_serializable(metodo, str(eq.f_sympy), str(eq.fp_sympy), fila=fila)
+        if spec is None:
+            return {"error": f"Practicar todavía no cubre el método '{metodo}'."}
+
+        p = generate_params(eq)
+        spec["equation"] = equation
+        # Los valores de arranque de la fila k=0, que el alumno no tiene que deducir.
+        spec["valores_iniciales"] = {"x0": p.x0, "a0": p.a, "b0": p.b}
+        return spec
     except Exception as e:
         return {"error": str(e)}
 

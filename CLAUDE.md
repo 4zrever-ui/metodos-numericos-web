@@ -667,6 +667,29 @@ Consola 0 errores (con búfer limpio; los `Failed to reload` que aparecieron era
 viejas del momento de editar el archivo — **tercera vez que pasa**, ver la nota de método del
 paso 1). ESLint 0 errores, `npm run build` OK.
 
+**Paso 4 — las fórmulas de Excel, como dato (2026-07-28). Primer cambio de backend de la fase.**
+- `backend/excel/formula_specs.py` (NUEVO) — la especificación de Newton y Bisección: por
+  columna, su cabecera, su fórmula en función de la fila, una **explicación en prosa para el
+  alumno**, y qué pasa en k=0 (literal o vacía). `excel_templates.py` **no se toca**.
+- `backend/test/test_formula_specs.py` (NUEVO) — **10 tests**, y es el **primer test que toca
+  `excel_templates.py`** en la historia del proyecto (H3). Construye la hoja de verdad con la
+  plantilla real, en memoria, y compara celda a celda tras **desenvolver el `_freeze`**.
+  Si alguien cambia la plantilla, esto se rompe: es lo que evita que la copia diverja.
+- `backend/main.py` (MODIFICADO, +33/−0) — `POST /practicar/plantilla`. **Aditivo**: no toca
+  ningún método ni ninguna plantilla.
+- **El caso de Bisección se verifica explícitamente, no por simetría con Newton** (lo pidió el
+  director y lo había destapado el sondeo D2): en k=0 las columnas `a` y `b` son **literales**
+  del intervalo y `Error %`/`Convergencia` están **vacías**; las fórmulas que deciden con qué
+  mitad se sigue (`IF(E2*F2<0,B2,C2)`) **sólo aparecen desde k=1 y ya envueltas**. Hay dos
+  tests dedicados a eso, aparte del paramétrico.
+- **`spec_serializable` usa la fila 3 (k=1) por defecto**, no la 2: es la primera fila donde
+  TODAS las columnas son fórmulas. En k=0 varias son literales, y en Bisección eso incluye
+  justo las dos más interesantes.
+- **Verificación: 162/162** en la suite completa (152 previos + 10 nuevos), y el endpoint
+  ejercitado directamente: Newton y Bisección devuelven las 7 y 10 columnas correctas,
+  método no cubierto → error legible, ecuación inválida → error del parser, `fila: "abc"` →
+  cae a 3, y la respuesta serializa a JSON (1564 bytes).
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - ~~Canvas del gráfico adaptable claro/oscuro~~ — ✅ **HECHO en FASE 3, paso 2b** (2026-07-28).
 - Aviso de "raíz exacta" (cuando x₀ ya es la raíz, iters=0).
