@@ -602,6 +602,28 @@ que es una ref y tampoco se tocó.
 ModuloContext.jsx`) eran **entradas antiguas del búfer**, del momento en que se borró ese
 archivo al separarlo en dos. Se confirmó abriendo el panel con el búfer limpio: cero errores.
 
+**Paso 2a — `FunctionGraph` extraído, sin tocar una línea de su cuerpo (2026-07-28).**
+VISION §3 da por reutilizable este gráfico en Practicar, pero era **privado** de
+`CalcularPage` y no estaba exportado: no había forma de usarlo desde otra página.
+- `src/components/FunctionGraph.jsx` (NUEVO) · `CalcularPage.jsx` **+1/−414**: una línea de
+  import y el bloque fuera. Ningún otro punto del archivo cambia.
+- **El paso 2 se partió en dos por decisión propia, y la razón es metodológica:** mover el
+  componente y cambiarle la paleta son cambios de naturaleza distinta, y **G1 se venía midiendo
+  POR EL COLOR de la curva** (`#a78bfa`). Haciéndolos a la vez no habría forma de demostrar
+  que el traslado fue fiel. Así que 2a es traslado puro —el gráfico sigue oscuro en ambos
+  temas, igual que antes— y el tema es 2b.
+- **Garantía de fidelidad:** el traslado se hizo **con un script**, no a mano, y se comparó
+  línea por línea: **414/414 idénticas**. El `export default FunctionGraph;` va **al final del
+  archivo** en vez de convertir la declaración en `export default function`, precisamente para
+  que esa igualdad sea exacta y no "exacta salvo una línea". (El `export` es lo único que la
+  extracción exige de verdad: el primer intento sin él no compilaba.)
+- **G1 verificado tras extraer:** `sin(x)-0.5` → **77 % del alto, 100 % del ancho**, el
+  baseline documentado al dígito; `tan(x)-x` → 100 %/100 %, también como está registrado;
+  cúbica → 77 %/100 %. Fondo oscuro intacto. Consola 0 errores. ESLint 0 errores, build OK.
+- Incidencia sin relación con el cambio: el dev server del director se cayó a mitad de la
+  verificación (5173 sin responder). Se levantó uno con `.claude/launch.json` —conservado en
+  FASE 2 justo para esto— y se repitió la medición completa.
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
   pero con fondo oscuro hardcodeado.
