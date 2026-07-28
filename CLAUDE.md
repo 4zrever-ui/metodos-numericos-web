@@ -776,6 +776,48 @@ pidiendo `/practicar/plantilla` a un Render que devuelve 404. El frontend lo ens
 "No se pudo contactar con el servidor", que es honesto pero inútil. **El backend debe
 desplegarse antes o a la vez que el frontend.**
 
+**Regresión completa de toda la app (2026-07-28). Primera vez que TODO el código nuevo
+convive en el mismo build.** Pedida por el director antes de considerar el push.
+
+| Caso | Resultado |
+|---|---|
+| **G1** encuadre (métrica posicional) | `sin(x)-0.5` 78 %×100 % · `tan(x)-x` 100 %×100 % · cúbica 77 %×100 % |
+| **G3** cambiar ecuación limpia resultados | ✅ y no resucitan al navegar |
+| **G4** banner de cold-start pegado | ✅ **CERRADO POR FIN** (ver abajo) |
+| **G8** último gana | ✅ **cerrado de verdad** (ver abajo) |
+| **G11** punto fijo desde la g dibujada | ✅ \|g′\|=0.2899 en el punto fijo real; sin marcador si escapa |
+| **G12** menos Unicode U+2212 | ✅ "Interpretado como x**2 -2" |
+| **G13** x₀ ya es el punto fijo | ✅ mensaje propio, no "converge" |
+| **Practicar A–E** | ✅ correcta · equivalente · signo invertido · umbral malo · vacío |
+| **H4** criterio del intervalo invertido | ✅ sigue cazándose |
+| Estado del módulo | ✅ ecuación y resultado sobreviven al navegar |
+| Temas | ✅ lienzos de Calcular y Aprender en `rgb(22,23,29)` en oscuro |
+
+**G4 y G8, cerrados con un backend falso y LENTO.** Llevaban dos bloques sin poder
+verificarse porque su síntoma exige que Render tarde. Se midió que Render **estaba dormido**
+(22.5 s en responder)… y esa misma medición lo despertó, consumiendo la ocasión. Solución:
+un servidor de 40 líneas que sólo tarda (`scratchpad/lento.mjs`, 14 s de retraso) al que se
+apunta `api.js` durante la prueba. Con él:
+- **G4:** sin banner al inicio → "Calculando" a 1.5 s → **banner a 5.5 s** → al cambiar la
+  ecuación **desaparece**, y sigue sin volver 2 s después. De paso confirma **G9** (el banner
+  se anuncia a los ~4.5 s, no al primer fallo).
+- **G8:** consulta lanzada, abandonada al cambiar de ecuación, y **la respuesta tardía que
+  llega 14 s después NO se pinta**.
+Queda como técnica reutilizable: **para verificar comportamiento que depende de latencia, no
+se espera a que el entorno colabore — se falsifica la latencia.**
+
+**El panel de ayuda de la hoja: era artefacto de prueba, no bug.** Quedaba a medias. Cadena de
+evidencia: `document.hasFocus()` es **false** —el panel del navegador nunca tiene el foco del
+sistema— y en esa condición `.focus()` asigna `activeElement` pero **no dispara ningún
+evento**: se registró un listener DOM propio, sin React de por medio, y recibió **cero**
+`focus` y **cero** `focusin`. El componente está bien: en cuanto llega un `focusin`, el panel
+abre. **Limitación:** no se pudo producir un foco real del sistema (el clic vía CDP exige
+captura previa, y la captura falla porque el panel no se muestra), así que la conclusión se
+apoya en que el evento no llega, no en haber visto el caso real funcionar.
+**Es la tercera vez que una prueba de interacción da un falso negativo por cómo se sintetiza
+el evento** (antes: `mouseleave` en la telaraña, y el búfer viejo de consola). Regla práctica:
+antes de declarar un bug de interacción, comprobar que el evento **llegó a dispararse**.
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - ~~Canvas del gráfico adaptable claro/oscuro~~ — ✅ **HECHO en FASE 3, paso 2b** (2026-07-28).
 - Aviso de "raíz exacta" (cuando x₀ ya es la raíz, iters=0).
@@ -931,6 +973,26 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
 **Hallazgos con entrada propia (NO son deuda técnica). Los abiertos esperan decisión de fase;
 los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin saberlo.**
 
+- **H5 — CERRADO: Practicar se quedaba EN BLANCO Y EN SILENCIO contra el backend desplegado,
+  y yo había afirmado lo contrario.** Descubierto en la regresión completa, apuntando a Render.
+  **Qué pasaba:** `/practicar/plantilla` no existe en el backend desplegado, así que Render
+  devuelve `404 {"detail":"Not Found"}`. Un 404 **no hace fallar al `fetch`**, de modo que el
+  `catch` de red nunca entraba; el cuerpo se parseaba bien, `json.error` no existía y el código
+  lo trataba como **respuesta buena**. Resultado: `hoja` quedaba `undefined` y la página
+  mostraba la introducción y los botones… y **nada más**. Ni tabla, ni error, ni "cargando".
+  **La corrección importa doble** porque en el aviso de despliegue del paso 6 yo escribí que
+  el frontend lo enseñaría como *"No se pudo contactar con el servidor"*. **Era falso**: no
+  enseñaba nada. Un fallo silencioso es peor que uno ruidoso, y lo peor es un aviso que
+  describe un comportamiento que no ocurre.
+  **Arreglo:** comprobar `r.ok` antes de tratar el cuerpo como bueno, con mensaje específico
+  para el 404 que nombra el endpoint que falta. Verificado contra Render: ahora dice *"El
+  servidor respondió 404: el backend desplegado todavía no tiene el endpoint
+  /practicar/plantilla"*.
+  **Lección:** `fetch` sólo rechaza por fallo de red. Todo código que lo use tiene que mirar
+  `r.ok`; comprobar únicamente el campo de error propio deja pasar todos los errores HTTP.
+  (Conviene revisar si el resto de llamadas del proyecto tienen el mismo hueco — **no
+  revisado todavía**, ver deuda técnica.)
+
 - **H4 — CERRADO, pero es el hallazgo más grave de FASE 3: el validador aprobaba una fórmula
   INCORRECTA.** Riesgo de credibilidad académica del mismo orden que H1: un corrector que da
   falsos positivos **enseña el método mal**, y el alumno no tiene forma de saberlo. Es peor
@@ -1016,6 +1078,10 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   por un test de coincidencia — ver §5.)
 
 **Deuda técnica:**
+- **¿Miran `r.ok` las demás llamadas del proyecto? — SIN REVISAR.** H5 destapó que comprobar
+  sólo el campo de error propio deja pasar cualquier error HTTP. `fetchWithWake` y las
+  llamadas de `CalcularPage` (`/params`, `/method/*`, `/excel/*`) **no se han auditado** con
+  ese criterio. Es revisión, no rediseño; conviene hacerla antes de añadir más endpoints.
 - **Dónde vive el chequeo de caracteres ajenos (regla 6.8) — PREGUNTA ABIERTA.** Existe y
   funciona: recorre el repo (93 archivos, 0 hallazgos hoy) y marca cirílico, CJK, hangul,
   kana, árabe, hebreo y devanagari, dejando pasar todo lo que el proyecto sí usa. Hoy vive

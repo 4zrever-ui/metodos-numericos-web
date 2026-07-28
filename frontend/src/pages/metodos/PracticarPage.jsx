@@ -38,6 +38,24 @@ export default function PracticarPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ equation: ejercicio.equation, metodo: ejercicio.metodo, filas: 7 }),
         });
+        // Un 404 NO hace fallar al `fetch`: sin esta comprobación, el cuerpo
+        // `{"detail":"Not Found"}` se tomaba por una respuesta buena, `hoja`
+        // salía `undefined` y la página se quedaba **en blanco y en silencio**
+        // —ni tabla, ni error, ni "cargando"—. Es lo que pasa hoy contra el
+        // backend desplegado, que todavía no tiene este endpoint.
+        if (!r.ok) {
+          if (vigente) {
+            setResultado({
+              id: ejercicio.id,
+              error:
+                r.status === 404
+                  ? "El servidor respondió 404: el backend desplegado todavía no tiene el endpoint /practicar/plantilla. Practicar necesita que se despliegue el backend."
+                  : `El servidor respondió ${r.status}. Inténtalo de nuevo en unos segundos.`,
+            });
+          }
+          return;
+        }
+
         const json = await r.json();
         if (!vigente) return;
         setResultado(
