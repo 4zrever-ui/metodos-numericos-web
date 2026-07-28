@@ -640,6 +640,21 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
   `evalF`** — entiende `Abs`/`cbrt` y protege la notación científica, cosas que `evalF` no
   hace; la migración es una mejora de comportamiento, no un movimiento literal, y por eso
   necesita su propia verificación.
+- **Mejoras de la telaraña aplazadas a FASE 4 (candidatos, NO construir antes).** Registradas
+  por decisión del director el 2026-07-27, con la telaraña ya funcionando:
+  - **Zoom y desplazamiento interactivos en el cobweb.** Hoy el encuadre es automático y no se
+    puede acercar. **Requisito no negociable si se implementa: el zoom debe escalar X e Y
+    JUNTOS.** La telaraña vive de que la recta y = x se vea a 45°; un zoom por eje —como el que
+    usa `FunctionGraph`, donde es correcto (G1)— rompería el ángulo y con él toda la intuición
+    del rebote. En la práctica significa multiplicar el `scale` único de `isoView` y recentrar,
+    nunca tocar `scaleX` y `scaleY` por separado.
+  - **Refuerzo de color por recencia del trazo.** Los últimos segmentos de la órbita se
+    dibujarían más intensos y los primeros más apagados, para que se lea de un vistazo hacia
+    dónde avanza la iteración sin tener que usar el paso a paso. Encaja con la paleta de
+    `plotCore.js` (misma familia de color, distinta opacidad).
+  - Ambas son mejoras de la visualización que ya existe, no piezas nuevas: por eso van a
+    FASE 4 (*"otras visualizaciones… más métodos"*, `VISION_PLATAFORMA.md` §4) y no a FASE 3,
+    que es Practicar.
 - **Candidato a G10 (no abordado) — posible carrera en `fetchAutoParams`:** al tipear
   rápido en la ecuación, `fetchAutoParams` (`pages/metodos/CalcularPage.jsx`, ex-App.jsx)
   dispara un `fetch` a `/params`
