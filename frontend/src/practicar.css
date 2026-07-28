@@ -1,0 +1,205 @@
+/*
+ * Estilos de la pestaña Practicar (FASE 3).
+ *
+ * Archivo aparte, como `aprender.css`: `plataforma.css` es del esqueleto y
+ * `App.css` de la calculadora, y ninguno se toca. Todo se apoya en las
+ * variables de `index.css`, así que hereda claro/oscuro sin trabajo extra.
+ */
+
+.practicar {
+  text-align: left;
+  padding: 0 24px 48px;
+}
+
+.practicar-intro {
+  max-width: 68ch;
+  margin: 0 0 24px;
+}
+
+.practicar-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.practicar-ejercicio {
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  background: none;
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 28%, var(--bg));
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  color: var(--text-h);
+}
+
+.practicar-ejercicio:hover { border-color: var(--accent-border); }
+
+.practicar-ejercicio--activo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.practicar-ejercicio small {
+  display: block;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.practicar-aviso {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-bg);
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  max-width: 68ch;
+}
+
+/* ── La hoja ──────────────────────────────────────────────────────────────── */
+
+.hoja { margin-bottom: 28px; }
+
+.hoja-barra {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.hoja-progreso {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.hoja-listo {
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.hoja-boton {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 30%, var(--bg));
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.hoja-boton:hover { background: var(--accent-bg); border-color: var(--accent-border); }
+
+/* Una hoja ancha desborda: que scrollee ella, nunca la página. */
+.hoja-scroll { overflow-x: auto; }
+
+.hoja-tabla {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 13px;
+  min-width: 100%;
+}
+
+.hoja-tabla th,
+.hoja-tabla td {
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 25%, var(--bg));
+  padding: 4px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.hoja-tabla thead th {
+  background: color-mix(in srgb, var(--text) 10%, var(--bg));
+  text-align: center;
+  color: var(--text-h);
+}
+
+.hoja-letra {
+  display: block;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.hoja-cabecera { display: block; font-size: 12px; }
+
+.hoja-num,
+.hoja-esquina {
+  background: color-mix(in srgb, var(--text) 10%, var(--bg));
+  color: var(--text);
+  font-size: 11px;
+  text-align: center;
+}
+
+.hoja-celda { color: var(--text-h); }
+
+.hoja-fila--edita td { background: color-mix(in srgb, var(--accent) 6%, var(--bg)); }
+
+.hoja-celda--edita { padding: 2px; }
+
+.hoja-celda--edita input {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 13px;
+  width: 15ch;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 35%, var(--bg));
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.hoja-celda--bien input { border-color: var(--accent); background: var(--accent-bg); }
+.hoja-celda--mal input { border-color: #e0555a; }
+
+/* ── Ayuda de la celda enfocada ───────────────────────────────────────────── */
+
+.hoja-ayuda {
+  border: 1px solid var(--border);
+  border-color: color-mix(in srgb, var(--text) 25%, var(--bg));
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 14px;
+  max-width: 72ch;
+}
+
+.hoja-ref {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.hoja-explicacion { margin: 4px 0 0; }
+
+.hoja-veredicto { margin-top: 8px; font-size: 14px; }
+.hoja-veredicto--bien { color: var(--accent); }
+.hoja-veredicto--mal { color: #e0555a; }
+
+.hoja-pista { margin-top: 6px; font-size: 14px; }
+
+.hoja-solucion {
+  margin-top: 16px;
+  border-left: 3px solid var(--border);
+  border-left-color: color-mix(in srgb, var(--text) 40%, var(--bg));
+  padding: 8px 14px;
+  max-width: 72ch;
+}
+
+.hoja-solucion ul { margin: 6px 0 0; padding-left: 18px; }
+.hoja-solucion li { margin-bottom: 3px; }
+
+.hoja-etiqueta {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}

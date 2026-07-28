@@ -690,6 +690,45 @@ paso 1). ESLint 0 errores, `npm run build` OK.
   método no cubierto → error legible, ecuación inválida → error del parser, `fila: "abc"` →
   cae a 3, y la respuesta serializa a JSON (1564 bytes).
 
+**Paso 5 — la hoja simulada (2026-07-28).**
+- `src/lib/hoja.js` (NUEVO) — `resolverHoja`, `formulaCanonica`, `celdasAEscribir` y
+  `validarCelda`. **Resuelve por pasadas hasta que ningún valor cambia, no en orden fijo**,
+  porque las columnas no son evaluables de izquierda a derecha: en Bisección `C` (el punto
+  medio) depende de `D` (el extremo derecho), que va después en el alfabeto. Ordenar las
+  dependencias a mano por método es lo que se rompe al añadir el tercero.
+- `src/components/HojaCalculo.jsx` + `src/practicar.css` (NUEVOS). El alumno escribe la fila
+  de régimen (k=1); las filas siguientes se ocultan hasta completarla —ver la tabla resuelta
+  antes de escribir le quita la gracia—, y hay un "Ver la solución" para quien se atasque.
+  Respeta D4: el `_freeze` **no aparece por ninguna parte**.
+- `backend/excel/formula_specs.py` + `main.py`: `spec_hoja` y el parámetro `filas`, para servir
+  la hoja entera fila a fila con el tipo de cada celda (`indice` / `inicial` / `formula` /
+  `vacia`). La distinción no es cosmética: en Bisección las columnas del intervalo son
+  literales en k=0 y fórmulas desde k=1.
+
+**HALLAZGO — D3 tenía un agujero, y lo destapó la verificación.**
+La decisión D3 fue "validar por valor numérico". Medido con datos reales:
+```
+canónica  =IF(I3<0.00001,"SI","NO")      → "NO"
+alumno    =IF(I3<0.1,"SI","NO")          → "NO"     ← ¡mismo valor!
+```
+Un **umbral mal escrito pasaba por correcto**, porque en esa fila concreta las dos fórmulas
+coinciden. Comparar en un solo punto no distingue "equivalente" de "acierta por casualidad".
+**Arreglo, sin abandonar D3:** `validarCelda` compara por valor **en varios escenarios**,
+sacudiendo los valores de las celdas referenciadas por factores de órdenes muy distintos
+(0.5, 2, 1e-3, 1e-6, 1e3, −1, 0.05). El caso de arriba lo caza el factor 1e-3, que lleva a I3
+a un valor **entre los dos umbrales**. Las formas equivalentes (`B3-C3/D3` vs `B3-(C3/D3)`)
+siguen dándose por buenas: sigue siendo corrección por valor, sólo que con más de un dato.
+Se añadió el veredicto `coincide-por-casualidad`, con su mensaje propio para el alumno.
+
+- **Verificación: 35/35** casos (`smoke6`), sobre **hojas reales exportadas del backend**, no
+  inventadas: Newton converge a 2.0945514815 con `G7 = "SI"`; Bisección encoge el intervalo a
+  [2.0938, 2.1094] encerrando la raíz; `I2`/`J2` vacías en k=0; `C3` se resuelve pese a
+  depender de `D3`; y la corrección acepta equivalentes y rechaza signo cambiado, división
+  invertida, fila equivocada y sintaxis rota. Suite backend **162/162**. ESLint 0 errores,
+  build OK.
+- **Pendiente de verificación en navegador:** el componente todavía no está montado en ninguna
+  página, así que lo comprobado es su lógica, no su pintado. Se verifica al integrarlo (paso 6).
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - ~~Canvas del gráfico adaptable claro/oscuro~~ — ✅ **HECHO en FASE 3, paso 2b** (2026-07-28).
 - Aviso de "raíz exacta" (cuando x₀ ya es la raíz, iters=0).

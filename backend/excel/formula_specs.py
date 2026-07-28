@@ -171,3 +171,64 @@ def spec_serializable(metodo: str, fx: str, fpx: str = "", fila: int = 3) -> dic
             for c in spec["columnas"]
         ],
     }
+
+
+def spec_hoja(metodo: str, fx: str, fpx: str = "", n_filas: int = 6,
+              valores_iniciales: dict | None = None) -> dict | None:
+    """
+    La hoja entera, fila a fila, lista para que el frontend la dibuje y la
+    resuelva.
+
+    Cada celda dice de qué tipo es, que es lo que el constructor necesita saber
+    para decidir si se teclea o viene dada:
+        "indice"   el k, un entero
+        "inicial"  un literal que pone el alumno (x₀, a₀, b₀)
+        "formula"  la que hay que escribir
+        "vacia"    en Bisección, el error y la convergencia de la fila k=0
+
+    La distinción NO es cosmética: en Bisección las columnas del intervalo son
+    literales en k=0 y fórmulas desde k=1, y tratarlas por simetría con Newton
+    daría una hoja incorrecta (sondeo D2).
+    """
+    spec = spec_para(metodo, fx, fpx)
+    if spec is None:
+        return None
+
+    iniciales = valores_iniciales or {}
+    # Qué literal le toca a cada columna en la fila k=0.
+    claves = {"x₀": "x0", "a₀": "a0", "b₀": "b0"}
+
+    filas = []
+    for i in range(n_filas):
+        fila_excel = spec["primera_fila"] + i
+        k = i
+        celdas = []
+        for c in spec["columnas"]:
+            if c["columna"] == "A":
+                tipo, contenido = "indice", str(k)
+            elif k == 0 and c["vacia_en_k0"]:
+                tipo, contenido = "vacia", ""
+            elif k == 0 and c["literal_en_k0"] is not None:
+                clave = claves.get(c["literal_en_k0"])
+                valor = iniciales.get(clave) if clave else None
+                tipo, contenido = "inicial", ("" if valor is None else str(valor))
+            else:
+                tipo, contenido = "formula", "=" + c["formula"](fila_excel)
+
+            celdas.append({
+                "columna": c["columna"],
+                "ref": f"{c['columna']}{fila_excel}",
+                "tipo": tipo,
+                "contenido": contenido,
+                "explicacion": c["explicacion"],
+            })
+        filas.append({"k": k, "fila": fila_excel, "celdas": celdas})
+
+    return {
+        "metodo": spec["metodo"],
+        "label": spec["label"],
+        "cabeceras": [
+            {"columna": c["columna"], "cabecera": c["cabecera"]} for c in spec["columnas"]
+        ],
+        "filas": filas,
+    }

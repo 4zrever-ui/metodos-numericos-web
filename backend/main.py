@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from backend.excel.excel_generator import generate_single, generate_all, _has_real_roots
 from backend.excel.excel_templates import _panel_message
-from backend.excel.formula_specs import spec_serializable
+from backend.excel.formula_specs import spec_hoja, spec_serializable
 import io
 
 app = FastAPI(title="Métodos Numéricos API")
@@ -98,9 +98,18 @@ def practicar_plantilla(data: dict):
             return {"error": f"Practicar todavía no cubre el método '{metodo}'."}
 
         p = generate_params(eq)
+        iniciales = {"x0": p.x0, "a0": p.a, "b0": p.b}
         spec["equation"] = equation
         # Los valores de arranque de la fila k=0, que el alumno no tiene que deducir.
-        spec["valores_iniciales"] = {"x0": p.x0, "a0": p.a, "b0": p.b}
+        spec["valores_iniciales"] = iniciales
+
+        # La hoja completa, fila a fila, para el constructor de Practicar.
+        try:
+            n_filas = max(2, min(int(data.get("filas") or 6), 25))
+        except (TypeError, ValueError):
+            n_filas = 6
+        spec["hoja"] = spec_hoja(metodo, str(eq.f_sympy), str(eq.fp_sympy),
+                                 n_filas=n_filas, valores_iniciales=iniciales)
         return spec
     except Exception as e:
         return {"error": str(e)}
