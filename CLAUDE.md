@@ -547,6 +547,14 @@ construya la hoja en memoria y verifique la coincidencia (por H3) · D3 = valida
 numérico**, con la cadena canónica como pista · D4 = **no** enseñar el `_freeze` (es
 presentacional según su propio docstring) · D5 = **Newton y Bisección** primero.
 
+**Decisiones añadidas tras la auditoría del bloque (2026-07-28):**
+- **D6 — el alumno edita la fila k=1**, no la k=0. Es la única opción funcional: en k=0 hay
+  literales (x₀, a₀, b₀) y, en Bisección, dos celdas vacías, así que no serviría como
+  ejercicio de "completa la fórmula".
+- **D7 — 9 escenarios de sacudida en `validarCelda`.** Aprobado con el criterio explícito de
+  "mejor pecar de más verificación que menos", después de comprobar que un factor único era
+  insuficiente (ver H4). Se ajustará **sólo con datos reales de uso**, no por intuición.
+
 **Paso 3 — motor de celdas (2026-07-28).** `src/lib/celdas.js` (NUEVO, cero archivos
 existentes tocados). `evaluarFormula`, `referenciasDe` y `compararFormulas`.
 - **No reutiliza `evalExpr`, y no por pereza:** aquel evaluador exige que el único
@@ -740,7 +748,8 @@ Se añadió el veredicto `coincide-por-casualidad`, con su mensaje propio para e
   marca como error) y, de regalo, una respuesta que llega tarde no puede pintarse sobre otro
   ejercicio — el mismo "último gana" de G8.
 
-**SEGUNDO HALLAZGO sobre D3, y más grave que el primero.** Ya en el navegador, se escribió el
+**SEGUNDO HALLAZGO sobre D3, y más grave que el primero → registrado como H4 en §7,
+con el peso que le corresponde.** Ya en el navegador, se escribió el
 criterio del intervalo **al revés** —`IF(E2*F2<0,B2,D2)` en vez de `...,B2,C2)`— y el sistema
 respondió **"Correcta."**. Causa: con los datos reales `E2*F2 < 0` es cierto, así que **sólo se
 evalúa la rama verdadera** y la falsa nunca se compara. Y los escenarios de `validarCelda`
@@ -785,7 +794,14 @@ desplegarse antes o a la vez que el frontend.**
 5. **Cold start de Render:** todo fetch nuevo contempla retry + aviso al usuario.
 6. **`amburger.xlsx` = fuente de verdad** para formato y fórmulas de Excel.
 7. **No reemplazar archivos a ciegas:** mostrar diff y esperar confirmación.
-8. **Este CLAUDE.md se actualiza ANTES de commitear el código.** Al terminar
+8. **Comprobar caracteres de alfabetos ajenos antes de commitear documentación.** Se han
+   colado tres veces —un ideograma CJK (U+63A7) y dos cirílicas dentro de la palabra "genera"
+   (U+0433, U+0435)— en textos por lo demás en español; a simple vista no se distinguen.
+   (Se citan por código y no por el glifo a propósito: el detector no sabe distinguir un
+   ejemplo entrecomillado de un desliz, y marcaría esta misma línea.) El chequeo caza cirílico, CJK, hangul, kana, árabe, hebreo y devanagari, y
+   **no** prohíbe lo no-ASCII: tildes, ñ, π, √, ², ₊, ≈, ─ y → son del proyecto y deben pasar.
+   Herramienta y ubicación **pendientes de decidir con el director** (ver §7, deuda técnica).
+9. **Este CLAUDE.md se actualiza ANTES de commitear el código.** Al terminar
    cualquier tarea (bug, feature o decisión) se anota aquí qué se hizo, el commit y
    el estado nuevo, en la misma tarea — no como paso posterior.
    **Si algo no está en el CLAUDE.md, no existe.** (Regla permanente del director,
@@ -912,7 +928,42 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
 
 **Fuera de alcance explícito:** hoja Resumen (C4).
 
-**Hallazgos abiertos (con entrada propia, fase por decidir — NO son deuda técnica):**
+**Hallazgos con entrada propia (NO son deuda técnica). Los abiertos esperan decisión de fase;
+los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin saberlo.**
+
+- **H4 — CERRADO, pero es el hallazgo más grave de FASE 3: el validador aprobaba una fórmula
+  INCORRECTA.** Riesgo de credibilidad académica del mismo orden que H1: un corrector que da
+  falsos positivos **enseña el método mal**, y el alumno no tiene forma de saberlo. Es peor
+  que no tener corrector.
+  **Qué pasaba.** Con el criterio del intervalo de Bisección escrito al revés
+  —`IF(E2*F2<0,B2,D2)` en lugar de `...,B2,C2)`— el sistema respondía **"Correcta."**
+  **Por qué.** Con los datos reales `E2*F2 < 0` es cierto, así que **sólo se evalúa la rama
+  verdadera y la falsa nunca llega a compararse**. La corrección por valor (D3) no ve la
+  diferencia porque en esa fila no la hay.
+  **Y por qué no lo cazó el primer arreglo.** Los escenarios de `validarCelda` multiplicaban
+  **todas** las celdas por el mismo factor, y eso **nunca cambia el signo de un producto**:
+  (−E)(−F) sigue siendo negativo. El generador de escenarios tenía el mismo defecto de fondo
+  que el bug que buscaba — álgebra elemental que se escapó en el primer intento, y que las
+  pruebas sintéticas no destaparon porque estaban escritas con la misma idea equivocada.
+  **Cómo se encontró (y esto es lo que hay que repetir):** NO por la batería, que estaba en
+  verde, sino **tecleando el error a mano en el navegador**. Una batería sintética sólo
+  comprueba lo que a uno se le ocurrió comprobar.
+  **Arreglo:** cada celda se sacude por SEPARADO, con un factor distinto por celda y por
+  escenario, de modo que el producto cambia de signo, la condición se invierte y la rama falsa
+  queda expuesta. **Al arreglarlo se rompió el caso anterior** (el umbral mal escrito): el
+  reparto saltaba los factores pequeños con fórmulas de una sola referencia. Reparto corregido
+  a `(escenario + j·4) mod n`, un escenario por factor. Los dos casos pasan a la vez.
+  **Lección permanente:** para un corrector, "pasa las pruebas" no es evidencia suficiente.
+  Hay que intentar **engañarlo a mano** con los errores que un alumno cometería de verdad —
+  sobre todo en fórmulas con ramas (`IF`), donde los datos de una fila concreta pueden no
+  ejercitar la rama equivocada. Antes de dar por bueno el validador de un método nuevo,
+  escribir a propósito: signo cambiado, división invertida, referencias intercambiadas,
+  umbral alterado.
+  **Cobertura actual:** 9 escenarios de sacudida (aprobado por el director el 2026-07-28,
+  "mejor pecar de más verificación que menos"). Si algún día el ritmo al teclear molesta, se
+  ajusta **con datos reales de uso, no antes**.
+
+
 
 - **H1 — El "Punto Fijo" automático es Newton disfrazado.** Medido el 2026-07-27 contra el
   backend local, al verificar la premisa de D3:
@@ -965,6 +1016,17 @@ LaTeX `\sqrt[3]{}`→`cbrt()`, multiplicación implícita, `sqrt/cbrt/ln/e/pi`).
   por un test de coincidencia — ver §5.)
 
 **Deuda técnica:**
+- **Dónde vive el chequeo de caracteres ajenos (regla 6.8) — PREGUNTA ABIERTA.** Existe y
+  funciona: recorre el repo (93 archivos, 0 hallazgos hoy) y marca cirílico, CJK, hangul,
+  kana, árabe, hebreo y devanagari, dejando pasar todo lo que el proyecto sí usa. Hoy vive
+  **fuera del repo**, en el scratchpad de la sesión, así que **no sobrevive a la siguiente**.
+  Las opciones son: (a) un script en el repo, p. ej. `herramientas/caracteres.mjs`, invocable
+  a mano; (b) un paso más de `npm run lint`; (c) un hook de pre-commit. **Sin decidir**: mete
+  un archivo nuevo en un proyecto que hasta ahora no tiene carpeta de utilidades, y esa es una
+  decisión del director, no mía.
+  **Limitación conocida:** no distingue un glifo citado como ejemplo de uno colado por error,
+  así que la propia regla 6.8 tiene que nombrarlos por código (U+…) y no por el glifo. Si
+  algún día hace falta citarlos literalmente, habrá que añadir una marca de excepción.
 - Optimización futura: cargar KaTeX de forma diferida (lazy load) para recuperar el
   peso inicial del bundle (~260 kB extra). No urgente.
 - ✅ **SALDADA en FASE 3, paso 1** (2026-07-28) — ver §5. Lo que sigue queda como registro de
