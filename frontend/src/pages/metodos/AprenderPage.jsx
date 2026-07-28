@@ -1,38 +1,66 @@
+import { useState } from "react";
+import "../../aprender.css";
+import TeoriaMetodo from "../../components/TeoriaMetodo.jsx";
+import { FAMILIAS, TEORIA } from "../../content/teoriaMetodos.js";
+
 /**
- * Esqueleto de FASE 1. El contenido llega en FASE 2 (VISION_PLATAFORMA.md §3).
+ * Pestaña APRENDER — "entiende cómo funciona" (VISION_PLATAFORMA.md §3).
  *
- * No se deja en blanco a propósito: una página vacía parece un bug, una que
- * dice qué vivirá aquí comunica que el edificio está en obra.
+ * FASE 2, paso 3: la teoría de los 14 métodos ya es contenido real. La
+ * demostración interactiva (telaraña de punto fijo) llega en el paso 4 y se
+ * inyectará en el hueco que la ficha deja por `children`.
+ *
+ * Arranca en Punto Fijo porque es la base conceptual de la que salen Aitken,
+ * Steffensen y —escrito de otra forma— el propio Newton, y porque es el método
+ * que estrenará la demostración interactiva.
  */
 export default function AprenderPage() {
+  const [clave, setClave] = useState("punto_fijo");
+  const ficha = TEORIA[clave];
+
   return (
-    <section className="pagina-esqueleto">
-      <h2>Aprender — entiende cómo funciona</h2>
-      <p className="pagina-esqueleto-nota">Sección en construcción (Fase 2).</p>
-
-      <p>Aquí vivirán:</p>
-      <ul>
-        <li>
-          La <strong>teoría de cada método</strong>: qué es, su fórmula, cuándo
-          aplica y su orden de convergencia, con las fórmulas renderizadas en
-          KaTeX.
-        </li>
-        <li>
-          Debajo, la <strong>demostración gráfica interactiva</strong> — la pieza
-          estrella: eliges tus parámetros (x₀, intervalo) sobre el gráfico y ves
-          paso a paso cómo converge el método con tu propia función.
-        </li>
-        <li>
-          La prueba de concepto será el <strong>diagrama de telaraña</strong> de
-          punto fijo; si funciona bien, se vuelve la plantilla para las demás
-          familias (intervalo, tangentes de Newton, secante).
-        </li>
-      </ul>
-
-      <p className="pagina-esqueleto-nota">
-        Mientras tanto, la calculadora ya muestra teoría viva con KaTeX en la
-        pestaña Calcular.
+    <section className="aprender">
+      <p className="aprender-intro">
+        Cada método resuelve f(x) = 0 con una idea distinta sobre cómo acercarse
+        a la raíz. Elige uno para ver qué hace, con qué fórmula itera, qué
+        necesita para funcionar y a qué velocidad converge.
       </p>
+
+      <nav className="aprender-selector" aria-label="Métodos numéricos">
+        {FAMILIAS.map((familia) => (
+          <div className="aprender-familia" key={familia.id}>
+            <span className="aprender-familia-titulo">{familia.titulo}</span>
+            <div className="aprender-familia-lista">
+              {familia.claves.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setClave(k)}
+                  aria-current={k === clave ? "true" : undefined}
+                  className={
+                    k === clave ? "aprender-metodo aprender-metodo--activo" : "aprender-metodo"
+                  }
+                >
+                  {TEORIA[k].label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      <TeoriaMetodo clave={clave}>
+        {ficha.demo === "cobweb" && (
+          <div className="ficha-demo-pendiente">
+            <span className="ficha-etiqueta">Demostración interactiva</span>
+            <p>
+              Aquí va el <strong>diagrama de telaraña</strong>: g(x), la recta
+              y = x y la escalera de iteraciones que converge —o escapa— según la
+              g(x) que elijas. Llega en el siguiente paso de esta fase.
+            </p>
+          </div>
+        )}
+      </TeoriaMetodo>
     </section>
   );
 }

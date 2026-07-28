@@ -1,0 +1,183 @@
+/*
+ * Estilos de la pestaña Aprender (FASE 2).
+ *
+ * Archivo aparte a propósito: `plataforma.css` es del esqueleto de FASE 1 y
+ * `App.css` es de la calculadora; ninguno se toca. Todo se apoya en las
+ * variables de `index.css`, así que hereda claro/oscuro sin trabajo extra.
+ */
+
+.aprender {
+  text-align: left;
+  padding: 0 24px 48px;
+}
+
+.aprender-intro {
+  max-width: 68ch;
+  margin: 0 0 28px;
+}
+
+/* ── Selector de método, agrupado por familia ─────────────────────────────── */
+
+.aprender-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.aprender-familia {
+  min-width: 190px;
+}
+
+.aprender-familia-titulo {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  opacity: 0.75;
+  margin-bottom: 8px;
+}
+
+.aprender-familia-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aprender-metodo {
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 5px 10px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.aprender-metodo:hover {
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.aprender-metodo--activo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+/* ── Ficha ────────────────────────────────────────────────────────────────── */
+
+.ficha {
+  max-width: 78ch;
+}
+
+.ficha-cabecera {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.ficha-cabecera h3 {
+  font-family: var(--heading);
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.ficha-orden {
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  cursor: help;
+}
+
+.ficha-idea {
+  margin-bottom: 24px;
+}
+
+.ficha-etiqueta {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+.ficha-formula {
+  background: var(--code-bg);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  /* Una fórmula larga desborda en móvil: que scrollee ella, no la página. */
+  overflow-x: auto;
+}
+
+.ficha-formula--condicion {
+  background: none;
+  border: 1px dashed var(--border);
+}
+
+.ficha-bloque {
+  margin-bottom: 20px;
+}
+
+.ficha-columnas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 720px) {
+  .ficha-columnas {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ficha-lista {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ficha-lista li {
+  margin-bottom: 4px;
+}
+
+.ficha-lista--pro li::marker {
+  color: var(--accent);
+}
+
+.ficha-lista--contra li::marker {
+  color: var(--text);
+}
+
+.ficha-advertencia {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-bg);
+  border-radius: 0 8px 8px 0;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+
+/* ── Hueco de la demostración interactiva (llega en el paso 4) ────────────── */
+
+.ficha-demo-pendiente {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 18px;
+  color: var(--text);
+}

@@ -5,7 +5,7 @@
 > previas de CLAUDE.md). Si algo aquí contradice a otro .md viejo, manda éste.
 >
 > Claude Code lo lee automáticamente al abrir el proyecto.
-> Última actualización: 2026-07-27 (FASE 2 en curso: pasos 1–2; D3 revertida, backend intacto).
+> Última actualización: 2026-07-27 (FASE 2 en curso: pasos 1–3; Aprender ya tiene teoría real).
 
 ---
 
@@ -33,8 +33,10 @@ frontend/src/
 ├── plataforma.css        CSS del esqueleto (cabecera, vestíbulo, pestañas)
 ├── lib/                  (FASE 2) evalExpr.js evaluador cliente · plotCore.js canvas puro
 │                                  fixedPoint.js  |g′|, órbitas y segmentos de la telaraña
-├── content/              (FASE 2) gxPresets.js  ecuaciones de ejemplo con sus g(x)
-├── components/           (FASE 2) Katex.jsx
+├── content/              (FASE 2) gxPresets.js ecuaciones de ejemplo con sus g(x)
+│                                  teoriaMetodos.js  las 14 fichas + FAMILIAS
+├── components/           (FASE 2) Katex.jsx · TeoriaMetodo.jsx
+├── aprender.css          (FASE 2) estilos de la pestaña Aprender
 ├── layouts/
 │   ├── PlataformaLayout.jsx   cabecera NumériCa + .app + warm-up de G5
 │   └── ModuloLayout.jsx       título del módulo + pestañas (NavLink)
@@ -251,6 +253,53 @@ Lo construido en su lugar (dos archivos NUEVOS, cero existentes tocados):
   `npm run build` OK. (La batería del paso 1 sigue en 52/52.)
 - Detalle: los módulos de `lib/` se importan **con extensión `.js`** (el resto del proyecto la
   omite). Vite la resuelve igual, y así se pueden probar con `node` a secas sin runner.
+
+**Paso 3 — La teoría de los 14 métodos, en pantalla (2026-07-27).**
+Primer paso de FASE 2 que toca un archivo existente y el primero con UI visible.
+- `src/content/teoriaMetodos.js` (NUEVO) — las **14 fichas**, con el esquema fijo acordado:
+  `label · familia · idea · recurrencia · condicion · cuandoAplica · orden{valor,etiqueta,nota}
+  · ventajas · desventajas · advertencia · demo`. Más `FAMILIAS` (las 5 agrupaciones de §3,
+  que fijan el orden de presentación) y `CLAVES`.
+  **Las recurrencias copian el CÓDIGO, no el libro:** cada LaTeX reproduce la fórmula que
+  implementa su `backend/methods/*.py`, para que un alumno que compare la teoría con la tabla
+  de iteraciones vea lo mismo. Si código y libro discrepan, manda el código y la discrepancia
+  se declara en `advertencia`.
+- `src/components/TeoriaMetodo.jsx` (NUEVO) — sólo pinta; el contenido viene del catálogo y la
+  demo se inyecta por `children`, así que la ficha no sabe nada de canvas.
+- `src/aprender.css` (NUEVO) — estilos propios. `plataforma.css` y `App.css` **no se tocan**;
+  todo se apoya en las variables de `index.css` y hereda claro/oscuro sin trabajo extra.
+- `src/pages/metodos/AprenderPage.jsx` (MODIFICADO, +56/−28, diff aprobado antes de aplicarlo)
+  — el esqueleto de FASE 1 pasa a selector de 14 métodos agrupado por familia + ficha
+  renderizada. Arranca en Punto Fijo (base conceptual y método que estrenará la demo).
+  Lo único que sobrevive del esqueleto es el principio de no mentir sobre lo que no existe:
+  en punto fijo hay un hueco que anuncia la telaraña del paso 4.
+
+**Los tres apartes "En este proyecto" (decisión de contenido, no detalle de código).**
+Tres fichas llevan un bloque `advertencia` que reconoce ANTE EL ALUMNO dónde la
+implementación se aparta de lo canónico. Era información que ya vivía en este CLAUDE.md
+pero que el estudiante no veía por ninguna parte:
+- **punto_fijo** — declara el hallazgo H1: la g(x) que propone Calcular es siempre
+  x − f/f′ (Newton disfrazado), converge de inmediato y **nunca pone a prueba |g′| < 1**,
+  que es toda la enseñanza del método. Por eso la demostración de Aprender usa los presets
+  curados de `gxPresets.js` y **no** promete estrategias de g venidas del backend.
+- **newton_segundo_orden** — declara que sólo se toma la rama +√ del discriminante (§4).
+- **ostrowsky** — declara la variante `signo(f')` frente a la fórmula estándar de dos pasos,
+  y que el signo es imprescindible (bug P1); reconciliación diferida (§7, punto 10).
+Además, dos órdenes de convergencia se dejaron **matizados a propósito** en vez de dar un
+número redondo: Steffensen (el clásico es cuadrático, pero aquí son tres capas de Δ²
+siguiendo la hoja Excel) y Ostrowsky (la variante con raíz no es la de dos pasos de orden 4).
+Se prefirió remitir a la tabla de iteraciones antes que afirmar un orden no verificado
+**para esta implementación**.
+
+- **Verificación: 60/60** casos propios — las 14 fichas existen, sus claves coinciden
+  **exactamente** con las de `METHODS` en la calculadora (sin sobrantes ni faltantes), el
+  esquema está completo en todas, y **las 38 expresiones LaTeX** (28 del catálogo + 10 de los
+  presets) renderizan con **`throwOnError: true` ACTIVADO** — o sea que son válidas, no
+  toleradas por el modo permisivo. Es el checkpoint que pedía el plan.
+  ESLint sobre `src` completo: **0 errores** (siguen los 2 warnings preexistentes de
+  `CalcularPage`; los archivos nuevos no añaden ninguno). `npm run build` OK.
+  Coste en bundle: JS 521→538 kB (gzip 161→166), CSS 42→44 kB.
+- Baterías de los pasos 1 y 2 sin tocar: 52/52 y 35/35.
 
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
