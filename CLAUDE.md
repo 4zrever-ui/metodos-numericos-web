@@ -518,6 +518,49 @@ y no lo estaba, así que todo lo anterior es **medición del DOM y de los píxel
 no inspección visual. Queda comprobado *qué* se dibuja y *dónde*; el juicio estético (grosor
 del trazo, ritmo de la animación, si el punto fijo se pierde sobre la rejilla) es del director.
 
+---
+
+**FASE 3 — Llenar PRACTICAR (en curso, arrancada 2026-07-28).**
+El constructor de fórmulas simulado. Antes de planear se verificó el código real; los
+hallazgos cambiaron dos premisas del plan (ver también H2 y H3 en §7):
+- **El backend SÍ tiene las fórmulas correctas, pero no como dato.** `to_excel_formula(expr,
+  "B3")` ([sympy_to_excel.py:175]) es pura, y las plantillas codifican la estructura celda a
+  celda (Newton: `C=f(B)`, `D=f'(B)`, `E=B-(C/D)`, `F=ABS((E-B)/E)*100`,
+  `G=IF(F<0.00001,"SI","NO")`). Pero `/excel/*` devuelve **binario**: ningún endpoint las
+  expone.
+- **El `_freeze` NO estorba** (sondeo D2, ejecutado): con `k=0` es la identidad, así que la
+  **fila k=0 ya contiene las fórmulas limpias**, y donde aparece envuelve a la fórmula sin
+  entrelazarse (es su tercer argumento). Salvedad: en Bisección la actualización del intervalo
+  (`IF(E2*F2<0,B2,C2)`) no existe en k=0 —ahí `a` y `b` son literales— y sólo aparece desde
+  k=1, ya envuelta.
+- **No hay evaluador de fórmulas de Excel en el proyecto** (H2, caso 2).
+- **La premisa de la deuda de estado era falsa** (H2, caso 3).
+- **Lo que VISION §3 daba por reutilizable, no lo es:** `FunctionGraph` es privado dentro de
+  `CalcularPage`, no exportado, con fondo `#1a1a2e` cableado; `CobwebGraph` no acepta props y
+  está atado a `GX_PRESETS` y a punto fijo. Sí sirven tal cual `plotCore`, `evalExpr`,
+  `fixedPoint`, `Katex` y `teoriaMetodos`. Y ojo: **`/params` no devuelve derivadas**;
+  `/analyze` da f y f′ pero **no f″**; sólo `/method/*` da las tres.
+
+**Decisiones del director (2026-07-28):** D1 ejercicios = **conjunto curado en el frontend** ·
+D2 = **módulo de especificación aparte, sin tocar `excel_templates.py`**, con un test que
+construya la hoja en memoria y verifique la coincidencia (por H3) · D3 = validar por **valor
+numérico**, con la cadena canónica como pista · D4 = **no** enseñar el `_freeze` (es
+presentacional según su propio docstring) · D5 = **Newton y Bisección** primero.
+
+**Paso 3 — motor de celdas (2026-07-28).** `src/lib/celdas.js` (NUEVO, cero archivos
+existentes tocados). `evaluarFormula`, `referenciasDe` y `compararFormulas`.
+- **No reutiliza `evalExpr`, y no por pereza:** aquel evaluador exige que el único
+  identificador sea `x`, así que rechaza `B3` de plano, y no sabe de `IF`, ni de cadenas, ni
+  de comparaciones — que es justo lo que distingue una hoja de una expresión. Comparte su
+  enfoque (traducir a JS y ejecutar con lista blanca), no su código.
+- **Verificación: 26/26**, y las fórmulas de prueba son **las que la plantilla escribe de
+  verdad**, volcadas ejecutando `NewtonRaphsonTemplate` y `BiseccionTemplate` en memoria — no
+  inventadas. Incluye el envoltorio `_freeze`, que evalúa bien aunque no se enseñe.
+- **Dos fallos propios cazados antes de commitear**, ambos de la familia del incidente de los
+  bytes NUL de FASE 2: restauraba las cadenas con `/(\d+)/g`, que habría machacado el
+  `0.00001` del criterio de convergencia; y encadenar el reemplazo de operadores convertía el
+  `!==` recién creado en `!======`. Hay un caso de prueba para cada uno.
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - Canvas del gráfico adaptable claro/oscuro (`getGraphPalette`) — el gráfico ya existe
   pero con fondo oscuro hardcodeado.
