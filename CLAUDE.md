@@ -78,8 +78,9 @@ Otros: **von_mises**.
 
 ## 4. Estado matemático (VERIFICADO — corregido respecto a notas viejas)
 
-- ✅ **152/152 tests pasando.** (+2 capa endpoint G6, 2026-06-14; +3 detección de raíces G2/G7, 2026-06-17.)
-- ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Secante, Aitken: correctos.
+- ✅ **169/169 tests pasando.** (162 de la línea base + 7 de Punto Fijo, verificados el 2026-10-02.)
+- ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Aitken: correctos (con tests propios).
+- ⚠️ **Secante y Von Mises: sin tests propios.** Los ejecuta `method_all`, pero ningún test comprueba su resultado; su corrección no está respaldada por la suite (ver la etapa de integridad en §5).
 - ✅ **Ostrowsky: YA CORREGIDO** (bug P1: perdía el signo de f' y divergía con x0<0).
   Fórmula final: `x − f·signo(f')/√(...)`, coherente en backend y Excel.
   (Nota: una versión vieja de este documento decía "pendiente" — era incorrecta.)
@@ -838,6 +839,43 @@ apoya en que el evento no llega, no en haber visto el caso real funcionar.
 el evento** (antes: `mouseleave` en la telaraña, y el búfer viejo de consola). Regla práctica:
 antes de declarar un bug de interacción, comprobar que el evento **llegó a dispararse**.
 
+**Etapa de integridad (2026-10-02, cambio de ejecutor a Codex)**
+
+Desde esta fecha el ejecutor es Codex (antes Claude Code). Las reglas de trabajo están
+en `AGENTS.md` (commit `60c2ca4`). La etiqueta anotada `estable-fase3` apunta a `b85e00c`
+y ya está subida a GitHub.
+
+La línea base medida fue de **162 tests**, con **Python 3.14.5 local**; build OK con el
+mismo nombre de bundle (`index-Ck1Jdngw.js`) que el registrado como producción el
+2026-07-28; ESLint **0 errores y 2 avisos**, ahora
+en `FunctionGraph.jsx`.
+
+El inventario de cobertura distingue ejecución y comprobación: **Secante y Von Mises
+no tienen tests específicos ni aserciones sobre sus resultados**, aunque los tests de
+`method_all` ejecutan ambos métodos indirectamente. Punto Fijo no tenía archivo propio;
+ahora `backend/test/test_punto_fijo.py` contiene **7 tests** y la suite suma **169**.
+En Newton 2º orden, `test_converge` solo exige `root is not None` para la convergencia:
+también comprueba aplicabilidad, pero no exige `converged` ni compara la raíz esperada.
+Solo **2 de las 14 plantillas de Excel**, Newton y Bisección, tienen test.
+
+Las mutaciones a, b, c y d sobre `punto_fijo.py` se detectan mediante pruebas en una
+copia fuera del proyecto. La primera tanda dejó sobrevivir b (`root = xk`); los tres
+tests nuevos de tolerancia laxa, error por fila y ausencia de raíz sin convergencia
+cerraron ese hueco y verificaron también c y d.
+
+**H1 confirmado como desviación:** la hoja de Punto Fijo de `amburger.xlsx` usa
+`g(x)=(x+2)/(x+1)` para `f(x)=x²−2`, un reordenamiento clásico, en lugar de `x−f/f′`.
+Por la regla 6.6 pasa a ser bug; queda pendiente la decisión de diseño.
+
+En Render, **Root Directory está vacío**. Build: `pip install -r backend/requirements.txt`.
+Start: `uvicorn backend.main:app --host 0.0.0.0 --port 10000`. `PYTHON_VERSION=3.11.0`
+está definida como variable en el panel; la versión efectiva la fija esa variable, que
+según la documentación de Render tiene prioridad; `backend/.python-version` no está
+en la raíz del repo, así que no es la fuente. Los tests locales corren en 3.14.5 y
+producción en 3.11.0: la integración continua de la Etapa C debe probar con 3.11.
+El plan es gratuito (inferido: el panel marca como de pago Edge Caching y Maintenance Mode; hiberna).
+Auto-Deploy está en **"On Commit"**.
+
 **Frontend — SIN integrar (decisión explícita, dejado para después):**
 - ~~Canvas del gráfico adaptable claro/oscuro~~ — ✅ **HECHO en FASE 3, paso 2b** (2026-07-28).
 - Aviso de "raíz exacta" (cuando x₀ ya es la raíz, iters=0).
@@ -1115,15 +1153,16 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   docstring o de un plan aprobado, ejecutar el código y comprobarla. Las cuatro veces el
   coste de verificar fue de minutos; construir encima habría costado días.
 
-- **H3 — Hueco de cobertura real: `excel_templates.py` no tiene NINGÚN test.**
-  Medido en FASE 3: el único import de Excel en toda la suite es
-  `from backend.excel.excel_generator import _has_real_roots` (en `test_real_roots_detection.py`).
-  **`backend/excel/excel_templates.py` —1091 líneas, donde vive cada fórmula de cada método—
-  importa cero veces.** Los "152/152 tests pasando" cubren métodos y parseo, **no** el Excel.
-  **Consecuencia para quien lo toque:** un cambio ahí no lo atrapa la suite; el fallo sólo
-  aparecería al abrir un .xlsx descargado. Si hay que modificarlo, hay que traer los tests.
-  (Por eso FASE 3 decidió NO tocarlo y exponer las fórmulas desde un módulo aparte fijado
-  por un test de coincidencia — ver §5.)
+- **H3 — Hueco de cobertura real: 2 de 14 plantillas de Excel tienen test.**
+  `backend/test/test_formula_specs.py` importa `NewtonRaphsonTemplate` y
+  `BiseccionTemplate` de `backend/excel/excel_templates.py`, construye las hojas en
+  memoria y comprueba sus fórmulas contra `formula_specs.py` mediante 10 tests.
+  Las otras **12 plantillas no tienen tests**. Los 169 tests de la suite no equivalen
+  a cobertura de todas las fórmulas de Excel.
+  **Consecuencia para quien lo toque:** un cambio en una plantilla sin cobertura puede
+  pasar la suite; hay que añadir tests antes de modificarla. FASE 3 mantuvo las
+  plantillas y expuso las fórmulas desde un módulo aparte con tests de coincidencia
+  para Newton y Bisección (ver §5).
 
 **Deuda técnica:**
 - ✅ **AUDITADO (2026-07-28): ninguna otra llamada tiene el fallo de H5.** Se revisaron las
@@ -1222,7 +1261,7 @@ cd frontend && npx eslint src/App.jsx          # linter
 
 # Backend (los imports son `from backend.X` → correr DESDE LA RAÍZ del repo, no desde backend/)
 uvicorn backend.main:app --reload              # servidor (desde la raíz) — ⚠️ PENDIENTE DE VERIFICAR (deducido de los imports, no ejecutado; confirmar al tocar backend para G2)
-python -m pytest backend/test                  # 149 tests (desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
+python -m pytest backend/test                  # 169 tests (desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
 ```
 
 **Dependencias de entorno (solo dev, no en el repo):** fastapi, uvicorn, pytest, formulas, scipy.
