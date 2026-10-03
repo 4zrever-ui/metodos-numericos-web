@@ -78,9 +78,10 @@ Otros: **von_mises**.
 
 ## 4. Estado matemático (VERIFICADO — corregido respecto a notas viejas)
 
-- ✅ **169/169 tests pasando.** (162 de la línea base + 7 de Punto Fijo, verificados el 2026-10-02.)
+- ✅ **174/174 tests pasando.** (162 de la línea base + 7 de Punto Fijo + 5 de Secante, verificados el 2026-10-02.)
 - ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Aitken: correctos (con tests propios).
-- ⚠️ **Secante y Von Mises: sin tests propios.** Los ejecuta `method_all`, pero ningún test comprueba su resultado; su corrección no está respaldada por la suite (ver la etapa de integridad en §5).
+- ⚠️ **Secante: 5 tests propios**, pero sigue pendiente la falsa convergencia de H7.
+- ⚠️ **Von Mises: sin tests propios.** Lo ejecuta `method_all`, pero ningún test comprueba su resultado; su corrección no está respaldada por la suite (ver la etapa de integridad en §5).
 - ✅ **Ostrowsky: YA CORREGIDO** (bug P1: perdía el signo de f' y divergía con x0<0).
   Fórmula final: `x − f·signo(f')/√(...)`, coherente en backend y Excel.
   (Nota: una versión vieja de este documento decía "pendiente" — era incorrecta.)
@@ -850,10 +851,11 @@ mismo nombre de bundle (`index-Ck1Jdngw.js`) que el registrado como producción 
 2026-07-28; ESLint **0 errores y 2 avisos**, ahora
 en `FunctionGraph.jsx`.
 
-El inventario de cobertura distingue ejecución y comprobación: **Secante y Von Mises
-no tienen tests específicos ni aserciones sobre sus resultados**, aunque los tests de
-`method_all` ejecutan ambos métodos indirectamente. Punto Fijo no tenía archivo propio;
-ahora `backend/test/test_punto_fijo.py` contiene **7 tests** y la suite suma **169**.
+El inventario de cobertura distingue ejecución y comprobación: **Von Mises no tiene
+tests específicos ni aserciones sobre sus resultados**, aunque los tests de
+`method_all` lo ejecutan indirectamente. Punto Fijo no tenía archivo propio;
+ahora `backend/test/test_punto_fijo.py` contiene **7 tests**. Secante tiene
+`backend/test/test_secante.py` con **5 tests** y la suite suma **174**.
 En Newton 2º orden, `test_converge` solo exige `root is not None` para la convergencia:
 también comprueba aplicabilidad, pero no exige `converged` ni compara la raíz esperada.
 Solo **2 de las 14 plantillas de Excel**, Newton y Bisección, tienen test.
@@ -862,6 +864,9 @@ Las mutaciones a, b, c y d sobre `punto_fijo.py` se detectan mediante pruebas en
 copia fuera del proyecto. La primera tanda dejó sobrevivir b (`root = xk`); los tres
 tests nuevos de tolerancia laxa, error por fila y ausencia de raíz sin convergencia
 cerraron ese hueco y verificaron también c y d.
+
+Las mutaciones **M1 a M6** sobre `secante.py` se detectan en una copia fuera del
+proyecto mediante los cinco tests de Secante.
 
 **H1 confirmado como desviación:** la hoja de Punto Fijo de `amburger.xlsx` usa
 `g(x)=(x+2)/(x+1)` para `f(x)=x²−2`, un reordenamiento clásico, en lugar de `x−f/f′`.
@@ -1058,6 +1063,22 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   `docs/PLAN_DESPLIEGUE.md` (2026-07-28) **no** lleva el aviso: está al día.
   **Sigue abierto** qué hacer con la carpeta a medio plazo, y **los 11 documentos restantes
   siguen sin revisar** — sólo se comprobó `RESUMEN_PROYECTO.md`.
+
+- **H7 — ABIERTO: Secante declara convergencia con una raíz falsa cuando f(xₖ) no
+  puede evaluarse (k≥2).** Evidencia medida: `ln(x)`, x₀=3, x₁=4 →
+  `converged=True`, `root=-0.8188416793064199`, `fxk=0.0` en k=2;
+  `ln(x)` no está definida para negativos.
+  **Causa:** `_eval_iferror` devuelve `0.0` ante un fallo. En el sondeo, ese valor
+  deja `x_next=xk` y `error_pct=0.0`, por lo que se declara convergencia.
+  Además, `_secant_step_k2plus` devuelve `(xk, 0.0, True)` si el denominador es
+  ≈0 o `x_next` no es finito (leído del código, no medido), replicando el diseño IFERROR de la hoja de referencia.
+  Por las fórmulas, la hoja haría lo mismo con una f de dominio restringido
+  (**inferido, no ejecutado**).
+  **Estado:** sin arreglar; decisión pendiente del director y del docente:
+  opción A, `converged=False`, sin raíz y con mensaje; opción B, mantener y advertir.
+  Corregirlo exige antes tests de la plantilla de Excel (H3), porque hay que cambiar
+  ambos lados a la vez. **Los tests actuales no fijan este comportamiento.**
+  Posible alcance a otros métodos: **sin verificar**.
 
 - **H5 — CERRADO: Practicar se quedaba EN BLANCO Y EN SILENCIO contra el backend desplegado,
   y yo había afirmado lo contrario.** Descubierto en la regresión completa, apuntando a Render.
@@ -1261,7 +1282,7 @@ cd frontend && npx eslint src/App.jsx          # linter
 
 # Backend (los imports son `from backend.X` → correr DESDE LA RAÍZ del repo, no desde backend/)
 uvicorn backend.main:app --reload              # servidor (desde la raíz) — ⚠️ PENDIENTE DE VERIFICAR (deducido de los imports, no ejecutado; confirmar al tocar backend para G2)
-python -m pytest backend/test                  # 169 tests (desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
+python -m pytest backend/test                  # 174 tests (desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
 ```
 
 **Dependencias de entorno (solo dev, no en el repo):** fastapi, uvicorn, pytest, formulas, scipy.
