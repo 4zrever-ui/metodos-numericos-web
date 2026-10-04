@@ -78,10 +78,10 @@ Otros: **von_mises**.
 
 ## 4. Estado matemático (VERIFICADO — corregido respecto a notas viejas)
 
-- ✅ **174/174 tests pasando.** (162 de la línea base + 7 de Punto Fijo + 5 de Secante, verificados el 2026-10-02.)
+- ✅ **178/178 tests pasando.** (162 de la línea base + 7 de Punto Fijo + 5 de Secante + 4 de Von Mises, verificados el 2026-10-03.)
 - ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Aitken: correctos (con tests propios).
 - ⚠️ **Secante: 5 tests propios**, pero sigue pendiente la falsa convergencia de H7.
-- ⚠️ **Von Mises: sin tests propios.** Lo ejecuta `method_all`, pero ningún test comprueba su resultado; su corrección no está respaldada por la suite (ver la etapa de integridad en §5).
+- ⚠️ **Von Mises: 4 tests propios**, pero ver H8 (raíz exacta en 0).
 - ✅ **Ostrowsky: YA CORREGIDO** (bug P1: perdía el signo de f' y divergía con x0<0).
   Fórmula final: `x − f·signo(f')/√(...)`, coherente en backend y Excel.
   (Nota: una versión vieja de este documento decía "pendiente" — era incorrecta.)
@@ -840,7 +840,7 @@ apoya en que el evento no llega, no en haber visto el caso real funcionar.
 el evento** (antes: `mouseleave` en la telaraña, y el búfer viejo de consola). Regla práctica:
 antes de declarar un bug de interacción, comprobar que el evento **llegó a dispararse**.
 
-**Etapa de integridad (2026-10-02, cambio de ejecutor a Codex)**
+**Etapa de integridad (2026-10-02, cambio de ejecutor a Codex) (continúa el 2026-10-03)**
 
 Desde esta fecha el ejecutor es Codex (antes Claude Code). Las reglas de trabajo están
 en `AGENTS.md` (commit `60c2ca4`). La etiqueta anotada `estable-fase3` apunta a `b85e00c`
@@ -851,11 +851,12 @@ mismo nombre de bundle (`index-Ck1Jdngw.js`) que el registrado como producción 
 2026-07-28; ESLint **0 errores y 2 avisos**, ahora
 en `FunctionGraph.jsx`.
 
-El inventario de cobertura distingue ejecución y comprobación: **Von Mises no tiene
-tests específicos ni aserciones sobre sus resultados**, aunque los tests de
-`method_all` lo ejecutan indirectamente. Punto Fijo no tenía archivo propio;
+El inventario de cobertura distingue ejecución y comprobación: **los 14 métodos tienen
+tests específicos, con calidad desigual**. Seis variantes comparten
+`backend/test/test_newton_family.py`. Punto Fijo no tenía archivo propio;
 ahora `backend/test/test_punto_fijo.py` contiene **7 tests**. Secante tiene
-`backend/test/test_secante.py` con **5 tests** y la suite suma **174**.
+`backend/test/test_secante.py` con **5 tests** y Von Mises tiene
+`backend/test/test_von_mises.py` con **4 tests**; la suite suma **178**.
 En Newton 2º orden, `test_converge` solo exige `root is not None` para la convergencia:
 también comprueba aplicabilidad, pero no exige `converged` ni compara la raíz esperada.
 Solo **2 de las 14 plantillas de Excel**, Newton y Bisección, tienen test.
@@ -866,7 +867,12 @@ tests nuevos de tolerancia laxa, error por fila y ausencia de raíz sin converge
 cerraron ese hueco y verificaron también c y d.
 
 Las mutaciones **M1 a M6** sobre `secante.py` se detectan en una copia fuera del
-proyecto mediante los cinco tests de Secante.
+proyecto mediante los cinco tests de Secante. Las mutaciones **V1 a V6** sobre
+`von_mises.py` también se detectan en una copia fuera del proyecto; **V5 falla como
+`ZeroDivisionError`**, antes de las aserciones.
+
+La convención `iteration_count = max(0, len(filas) - 1)` coincide en Von Mises y
+Newton-Raphson: medido con `f=x²−2`, x₀=1 y `tol=5`, ambos devuelven **2 con 3 filas**.
 
 **H1 confirmado como desviación:** la hoja de Punto Fijo de `amburger.xlsx` usa
 `g(x)=(x+2)/(x+1)` para `f(x)=x²−2`, un reordenamiento clásico, en lugar de `x−f/f′`.
@@ -1080,6 +1086,23 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   ambos lados a la vez. **Los tests actuales no fijan este comportamiento.**
   Posible alcance a otros métodos: **sin verificar**.
 
+- **H8 — ABIERTO: Von Mises no reconoce una raíz exacta en 0.**
+  Evidencia medida: `f=2x`, x₀=1 → `applicable=True`, `converged=False`,
+  `root=None`, **0 filas**; Newton-Raphson con el mismo caso da `converged=True`,
+  `root=0.0`.
+  **Causa (leída del código, no medida por separado):** el error se calcula como
+  |(x_next−xk)/x_next|·100, que divide entre `x_next=0`; el código hace `break`,
+  replicando el `#DIV/0!` de la hoja de referencia («sin IFERROR», según el comentario
+  del código).
+  **Relación con H7:** ambas surgen de cómo cada método trata los casos donde el error
+  relativo no es calculable.
+  **Estado:** sin arreglar; decisión pendiente del director y del docente,
+  **una sola consulta para H7 y H8**. Precedente en el proyecto: Punto Fijo usa
+  error absoluto multiplicado por 100 cuando |g(x)| ≤ 1e-15.
+  Corregirlo exige antes tests de plantilla Excel (H3).
+  **Los tests actuales no fijan este comportamiento.**
+  Posible alcance a otros métodos: **sin verificar**.
+
 - **H5 — CERRADO: Practicar se quedaba EN BLANCO Y EN SILENCIO contra el backend desplegado,
   y yo había afirmado lo contrario.** Descubierto en la regresión completa, apuntando a Render.
   **Qué pasaba:** `/practicar/plantilla` no existe en el backend desplegado, así que Render
@@ -1282,7 +1305,7 @@ cd frontend && npx eslint src/App.jsx          # linter
 
 # Backend (los imports son `from backend.X` → correr DESDE LA RAÍZ del repo, no desde backend/)
 uvicorn backend.main:app --reload              # servidor (desde la raíz) — ⚠️ PENDIENTE DE VERIFICAR (deducido de los imports, no ejecutado; confirmar al tocar backend para G2)
-python -m pytest backend/test                  # 174 tests (desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
+python -m pytest backend/test                  # 178 tests (desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
 ```
 
 **Dependencias de entorno (solo dev, no en el repo):** fastapi, uvicorn, pytest, formulas, scipy.
