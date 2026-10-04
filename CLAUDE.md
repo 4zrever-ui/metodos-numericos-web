@@ -78,15 +78,18 @@ Otros: **von_mises**.
 
 ## 4. Estado matemático (VERIFICADO — corregido respecto a notas viejas)
 
-- ✅ **178/178 tests pasando.** (162 de la línea base + 7 de Punto Fijo + 5 de Secante + 4 de Von Mises, verificados el 2026-10-03.)
-- ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Aitken: correctos (con tests propios).
-- ⚠️ **Secante: 5 tests propios**, pero sigue pendiente la falsa convergencia de H7.
+- ✅ **327 pasan y 5 `xfail` (documentan H7, H9, H10 y H11).** Medido el 2026-10-03:
+  178 tests previos + 154 combinaciones de coherencia (149 pasan y 5 `xfail`).
+- ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Aitken: con tests propios;
+  tener tests no garantiza corrección en todos los casos (ver H9 para Aitken y H11 para Newton).
+- ⚠️ **Secante: 5 tests propios**, pero siguen pendientes las falsas convergencias de H7 y H10.
 - ⚠️ **Von Mises: 4 tests propios**, pero ver H8 (raíz exacta en 0).
 - ✅ **Ostrowsky: YA CORREGIDO** (bug P1: perdía el signo de f' y divergía con x0<0).
   Fórmula final: `x − f·signo(f')/√(...)`, coherente en backend y Excel.
   (Nota: una versión vieja de este documento decía "pendiente" — era incorrecta.)
-- ✅ **Coherencia root=None:** cuando `converged=False` ya NO se devuelve raíz basura
-  (antes salían valores como 2.4×10²⁶¹). Las 3 capas (front/back/Excel) coinciden. `iter=-1 → 0`.
+- ⚠️ **Coherencia root=None:** la auditoría exige `root=None` cuando `converged=False`,
+  pero mide una excepción en Newton-Raphson inaplicable (H11). La coincidencia de las
+  tres capas (front/back/Excel) no queda garantizada por esa auditoría. `iter=-1 → 0`.
 - ✅ Excel verificado: x³−2x−5 → 14 tablas; x²+1 → 14 paneles "sin raíces reales"; 0 errores.
 - ⚠️ **Newton 2do orden:** solo toma la rama `+√discriminante`. Debería evaluar ambas
   y elegir la que minimice |f|. (Pendiente real, requiere tests.)
@@ -856,7 +859,9 @@ tests específicos, con calidad desigual**. Seis variantes comparten
 `backend/test/test_newton_family.py`. Punto Fijo no tenía archivo propio;
 ahora `backend/test/test_punto_fijo.py` contiene **7 tests**. Secante tiene
 `backend/test/test_secante.py` con **5 tests** y Von Mises tiene
-`backend/test/test_von_mises.py` con **4 tests**; la suite suma **178**.
+`backend/test/test_von_mises.py` con **4 tests**; antes de la auditoría de coherencia,
+la suite sumaba **178**. Medido tras añadir `backend/test/test_coherencia_method_all.py`:
+**327 pasan y 5 `xfail` (documentan H7, H9, H10 y H11)**.
 En Newton 2º orden, `test_converge` solo exige `root is not None` para la convergencia:
 también comprueba aplicabilidad, pero no exige `converged` ni compara la raíz esperada.
 Solo **2 de las 14 plantillas de Excel**, Newton y Bisección, tienen test.
@@ -873,6 +878,20 @@ proyecto mediante los cinco tests de Secante. Las mutaciones **V1 a V6** sobre
 
 La convención `iteration_count = max(0, len(filas) - 1)` coincide en Von Mises y
 Newton-Raphson: medido con `f=x²−2`, x₀=1 y `tol=5`, ambos devuelven **2 con 3 filas**.
+
+**Auditoría de coherencia — medido:** 11 casos × 14 métodos, **154 combinaciones**,
+por el camino real del usuario, `method_all`, con los mismos payloads del script externo.
+Regla A: `converged=True` exige raíz distinta de `None` y finita, con |f(raíz)| ≤ 1e-6 calculado
+independientemente mediante aritmética Python y `math`; si f no puede evaluarse,
+es una violación. Regla B: `converged=False` exige `root=None`.
+**Leído del código:** la regla de excepciones no es comprobable a partir de la respuesta
+de `method_all`, porque captura las excepciones de los métodos y las devuelve como N/A;
+el test no incluye esa regla. El archivo aporta **149 casos que pasan y 5 `xfail(strict=True)`**:
+caso 5/Secante (H7), caso 7/Steffensen y Aitken (H9), caso 10/Secante (H10) y
+caso 8/Newton (H11). Los `xfail` documentan incumplimientos del contrato.
+**Medido:** el script de auditoría se ejecutó fuera del repo, sin tocar el proyecto;
+se inventariaron **5227 archivos**, sin cambios. El único archivo añadido después,
+en la tarea de tests, es `backend/test/test_coherencia_method_all.py`.
 
 **H1 confirmado como desviación:** la hoja de Punto Fijo de `amburger.xlsx` usa
 `g(x)=(x+2)/(x+1)` para `f(x)=x²−2`, un reordenamiento clásico, en lugar de `x−f/f′`.
@@ -1071,37 +1090,89 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   siguen sin revisar** — sólo se comprobó `RESUMEN_PROYECTO.md`.
 
 - **H7 — ABIERTO: Secante declara convergencia con una raíz falsa cuando f(xₖ) no
-  puede evaluarse (k≥2).** Evidencia medida: `ln(x)`, x₀=3, x₁=4 →
+  puede evaluarse (k≥2).** **Medido:** `ln(x)`, x₀=3, x₁=4 →
   `converged=True`, `root=-0.8188416793064199`, `fxk=0.0` en k=2;
-  `ln(x)` no está definida para negativos.
-  **Causa:** `_eval_iferror` devuelve `0.0` ante un fallo. En el sondeo, ese valor
-  deja `x_next=xk` y `error_pct=0.0`, por lo que se declara convergencia.
+  `ln(x)` no está definida para negativos. **Confirmado por el camino real del
+  usuario (`method_all`, caso 5: `ln(x)`, x₀=3, x₁=4).**
+  **Leído del código:** `_eval_iferror` devuelve `0.0` ante un fallo.
+  **Medido en el sondeo:** ese valor deja `x_next=xk` y `error_pct=0.0`,
+  por lo que se declara convergencia.
   Además, `_secant_step_k2plus` devuelve `(xk, 0.0, True)` si el denominador es
-  ≈0 o `x_next` no es finito (leído del código, no medido), replicando el diseño IFERROR de la hoja de referencia.
-  Por las fórmulas, la hoja haría lo mismo con una f de dominio restringido
-  (**inferido, no ejecutado**).
-  **Estado:** sin arreglar; decisión pendiente del director y del docente:
-  opción A, `converged=False`, sin raíz y con mensaje; opción B, mantener y advertir.
+  ≈0 o `x_next` no es finito (leído del código, no medido), replicando el diseño
+  IFERROR de la hoja de referencia.
+  **Hipótesis a partir de las fórmulas, no ejecutada en Excel:** la hoja haría
+  lo mismo con una f de dominio restringido.
+  **Test:** `xfail(strict=True)` del caso 5/Secante en `test_coherencia_method_all.py`.
+  **Estado:** sin arreglar; decisión pendiente del director y del docente,
+  en una sola consulta sobre H7 a H11 (ver política de convergencia).
   Corregirlo exige antes tests de la plantilla de Excel (H3), porque hay que cambiar
-  ambos lados a la vez. **Los tests actuales no fijan este comportamiento.**
+  ambos lados a la vez.
   Posible alcance a otros métodos: **sin verificar**.
 
-- **H8 — ABIERTO: Von Mises no reconoce una raíz exacta en 0.**
-  Evidencia medida: `f=2x`, x₀=1 → `applicable=True`, `converged=False`,
-  `root=None`, **0 filas**; Newton-Raphson con el mismo caso da `converged=True`,
-  `root=0.0`.
-  **Causa (leída del código, no medida por separado):** el error se calcula como
-  |(x_next−xk)/x_next|·100, que divide entre `x_next=0`; el código hace `break`,
+- **H8 — ABIERTO, ampliado: raíces en 0 y criterio de parada.**
+  **Medido:** con `f=2x` y `f=x`, x₀=1, Von Mises y Newton 2º orden devuelven
+  `converged=False`, `root=None`; Newton-Raphson devuelve `converged=True`,
+  `root=0.0`. En el sondeo individual de Von Mises con `f=2x` hubo **0 filas**.
+  **Medido por `method_all`, caso 3:** con `f=x³` (raíz triple en 0), x₀=1,
+  cinco métodos tienen filas con |f(xₖ)| < 1e-9 y aun así terminan con
+  `converged=False`: Newton desde k=18, Chebyshev desde k=12, Halley desde k=10,
+  Super Halley desde k=7 y Ostrowsky desde k=9. Esos k identifican la primera fila
+  observada bajo ese umbral, no una iteración declarada convergente.
+  **Causa de Newton 2º orden con f=2x y f=x: no determinada.** Su suite incluye
+  `test_fpp_cero_break`, lo que sugiere una ruptura por f″=0 con funciones lineales
+  (hipótesis, sin confirmar).
+  **Hipótesis para f=x³ (aritmética verificada solo para Newton):** el respaldo
+  absoluto solo se activa si |x_next| ≤ 1e-15, que no se alcanza en 25 iteraciones;
+  con x³, Newton da xₖ₊₁=(2/3)xₖ, por lo que el error relativo se mantiene en 50 %
+  y nunca baja de la tolerancia. xₖ=(2/3)^k: para k=18, 6.77e-4, que coincide con
+  el xₖ observado (0.0006766). No se ha comprobado en Chebyshev, Halley,
+  Super Halley ni Ostrowsky.
+  **Causa de Von Mises (leída del código, no medida por separado):** el error se calcula
+  como |(x_next−xk)/x_next|·100, que divide entre `x_next=0`; el código hace `break`,
   replicando el `#DIV/0!` de la hoja de referencia («sin IFERROR», según el comentario
   del código).
-  **Relación con H7:** ambas surgen de cómo cada método trata los casos donde el error
-  relativo no es calculable.
-  **Estado:** sin arreglar; decisión pendiente del director y del docente,
-  **una sola consulta para H7 y H8**. Precedente en el proyecto: Punto Fijo usa
-  error absoluto multiplicado por 100 cuando |g(x)| ≤ 1e-15.
+  **Leído del código:** Newton-Raphson (`newton_raphson.py:71-74`) y Punto Fijo
+  (`punto_fijo.py:155-158`) usan error absoluto multiplicado por 100 cuando el
+  nuevo aproximado tiene magnitud ≤ 1e-15. También existe ese respaldo en Bisección
+  (`biseccion.py:156-159`), Regula Falsi (`regula_falsi.py:139-142`), Aitken
+  (`aitken.py:136-139`) y el iterador común de las seis variantes de Newton
+  (`newton_family.py:80-83`). Por tanto, no es correcto afirmar que «el resto no».
+  **Leído del código, comprobado con `rg`:** respaldo de error absoluto cuando el
+  nuevo aproximado es casi cero: **no encontrado** en `secante.py` (77-81 y 116-120),
+  `steffensen.py` (178-181) ni `von_mises.py` (73-77). Secante asigna error `0.0`
+  si la división falla; Steffensen y Von Mises hacen `break` por división por cero.
+  **Relación con H7:** ambos hallazgos afectan al tratamiento de casos donde el error
+  relativo no es calculable; las causas de los resultados medidos se distinguen arriba.
+  **Estado:** sin arreglar; una sola consulta al docente para H7 a H11.
   Corregirlo exige antes tests de plantilla Excel (H3).
-  **Los tests actuales no fijan este comportamiento.**
-  Posible alcance a otros métodos: **sin verificar**.
+  Los tests de coherencia no exigen convergencia en estos casos: comprueban las reglas A y B.
+
+- **H9 — ABIERTO: Aitken y Steffensen declaran convergencia en un punto que no es raíz.**
+  **Medido por `method_all`, caso 7:** `x³−2x+2`, x₀=0 →
+  `converged=True`, `root=0.5`, |f(0.5)|=1.125, en ambos métodos.
+  **Hipótesis, sin confirmar leyendo las filas:** la g automática es la de Newton (H1);
+  Newton cicla 0→1→0 y la Δ² de Aitken sobre (0,1,0) da exactamente 0.5, el punto
+  medio del ciclo. La puerta local |g′(x₀)|<1 no lo detectaría porque g′(0)=0.
+  **Test:** dos `xfail(strict=True)`, caso 7/Steffensen y caso 7/Aitken.
+  **Estado:** sin arreglar; decisión pendiente sobre la política de convergencia.
+
+- **H10 — ABIERTO: Secante declara convergencia mientras diverge.**
+  **Medido por `method_all`, caso 10:** `atan(x)`, x₀=2, x₁=3 →
+  `converged=True`, `root=3.187557923366246e+22`,
+  |f(raíz)|=1.5707963267948966 (π/2 en la precisión numérica usada).
+  **Hipótesis:** el error relativo es diminuto con magnitudes enormes;
+  no se ha confirmado esa causa leyendo las filas.
+  **Test:** `xfail(strict=True)`, caso 10/Secante.
+  **Estado:** sin arreglar; decisión pendiente sobre la política de convergencia.
+
+- **H11 — ABIERTO: Newton-Raphson inaplicable devuelve `root=x0`.**
+  **Leído del código:** `backend/methods/newton_raphson.py:50`, rama inaplicable,
+  devuelve `iterations=[], root=x0, final_error_pct=None`.
+  **Medido por `method_all`, caso 8:** `x²−2`, x₀=0 →
+  `applicable=False`, `converged=False`, `root=0.0`;
+  los demás métodos inaplicables de ese caso devuelven `None`.
+  **Test:** `xfail(strict=True)`, caso 8/Newton.
+  **Estado:** sin arreglar; decisión pendiente sobre la política de convergencia.
 
 - **H5 — CERRADO: Practicar se quedaba EN BLANCO Y EN SILENCIO contra el backend desplegado,
   y yo había afirmado lo contrario.** Descubierto en la regresión completa, apuntando a Render.
@@ -1201,12 +1272,37 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   `backend/test/test_formula_specs.py` importa `NewtonRaphsonTemplate` y
   `BiseccionTemplate` de `backend/excel/excel_templates.py`, construye las hojas en
   memoria y comprueba sus fórmulas contra `formula_specs.py` mediante 10 tests.
-  Las otras **12 plantillas no tienen tests**. Los 169 tests de la suite no equivalen
-  a cobertura de todas las fórmulas de Excel.
+  Las otras **12 plantillas no tienen tests**. Los **327 tests que pasan y 5 `xfail`**
+  de la suite no equivalen a cobertura de todas las fórmulas de Excel.
   **Consecuencia para quien lo toque:** un cambio en una plantilla sin cobertura puede
   pasar la suite; hay que añadir tests antes de modificarla. FASE 3 mantuvo las
   plantillas y expuso las fórmulas desde un módulo aparte con tests de coincidencia
   para Newton y Bisección (ver §5).
+
+**Impacto en la interfaz de H7 a H11**
+
+**Leído de `frontend/src/pages/metodos/CalcularPage.jsx`, no visto en pantalla:**
+la tabla comparativa pinta como convergida toda fila aplicable con `converged=True`;
+si `applicable=False`, prioriza N/A (`CalcularPage.jsx:263-268`).
+En un método individual, un resultado aplicable y convergido muestra la raíz con
+10 dígitos significativos (`toPrecision(10)`, línea 178) y la añade como marca al
+gráfico si es distinta de `None` y no existe ya una marca a distancia < 1e-6 (líneas 526-530).
+La columna Raíz de la tabla comparativa imprime cualquier raíz distinta de `None`, incluso
+en filas N/A (`toPrecision(8)`, línea 273).
+
+**Decisión pendiente: política de convergencia (H7 a H11)**
+
+Una sola consulta al docente. **Propuesta del director, no implementada:**
+
+1. Un método solo declara «convergió» si además |f(raíz)| es pequeño, con mensaje
+   claro, manteniendo idénticas las tablas de iteración.
+2. Error absoluto de respaldo en todos los métodos, como Newton-Raphson y Punto Fijo.
+3. Inaplicable siempre con `root=None`.
+
+**Hipótesis de impacto, no ejecutada en Excel:** si se cambia únicamente la app,
+el Excel descargado seguiría diciendo «SI» donde la app dijera «NO».
+Por ello, corregirlo exige antes los tests de las plantillas (H3) y mantener
+coherentes ambos lados.
 
 **Deuda técnica:**
 - ✅ **AUDITADO (2026-07-28): ninguna otra llamada tiene el fallo de H5.** Se revisaron las
@@ -1305,7 +1401,7 @@ cd frontend && npx eslint src/App.jsx          # linter
 
 # Backend (los imports son `from backend.X` → correr DESDE LA RAÍZ del repo, no desde backend/)
 uvicorn backend.main:app --reload              # servidor (desde la raíz) — ⚠️ PENDIENTE DE VERIFICAR (deducido de los imports, no ejecutado; confirmar al tocar backend para G2)
-python -m pytest backend/test                  # 178 tests (desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
+python -m pytest backend/test                  # 327 pasan y 5 xfail (documentan H7, H9, H10 y H11; desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
 ```
 
 **Dependencias de entorno (solo dev, no en el repo):** fastapi, uvicorn, pytest, formulas, scipy.
