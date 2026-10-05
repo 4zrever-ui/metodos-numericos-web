@@ -6,7 +6,6 @@ import re
 from pathlib import Path
 
 import pytest
-import sympy
 
 formulas = pytest.importorskip("formulas")
 
@@ -210,17 +209,28 @@ def test_excel_matches_backend(recalculated_books, case, mode, method):
     pytest.param(0, id="case1-C"),
     pytest.param(1, id="case2-C"),
 ])
-@pytest.mark.xfail(
-    strict=True,
-    reason="H12: overrides con x0 sin gx no completan g_str",
-    raises=sympy.SympifyError,
-)
-def test_excel_x0_without_gx_does_not_raise(case):
+@pytest.mark.parametrize("method", [
+    pytest.param(None, id="all"),
+    pytest.param("punto_fijo", id="punto_fijo"),
+    pytest.param("aitken", id="aitken"),
+    pytest.param("steffensen", id="steffensen"),
+])
+def test_excel_x0_without_gx_does_not_raise(case, method):
     payload = _payload(case, "C")
-    contents = generate_all(
-        payload["equation"],
-        params_per_method=_overrides(payload),
-        eq_label=payload["equation"],
-    )
-    assert contents
+    if method is None:
+        response = api.excel_all(payload)
+    else:
+        response = api.excel_single({**payload, "method_key": method})
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("case", [
+    pytest.param(0, id="case1-x0-x1"),
+    pytest.param(1, id="case2-x0-x1"),
+])
+def test_excel_x0_x1_without_gx_does_not_raise(case):
+    # Combinacion adicional que lanzo SympifyError en el sondeo de excel_all.
+    equation, x0, x1, *_ = CASES[case]
+    response = api.excel_all({"equation": equation, "x0": x0, "x1": x1})
+    assert response.status_code == 200
 

@@ -225,8 +225,7 @@ def _default_params(method_key: str, fx_str: str) -> dict[str, Any]:
 def _build_sheet(wb: Workbook, method_key: str, fx_str: str,
                  params: dict | None, n_iter: int, eq_label: str) -> None:
     """Add a single method sheet to wb."""
-    if params is None:
-        params = _default_params(method_key, fx_str)
+    params = {**_default_params(method_key, fx_str), **(params or {})}
 
     sheet_name = SHEET_NAMES[method_key]
     ws = wb.create_sheet(title=sheet_name)
