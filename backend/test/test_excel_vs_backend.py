@@ -176,7 +176,7 @@ def _comparisons():
                 elif mode == "B" and method in MANUAL_SIZE_METHODS:
                     reason = "H13: Excel dimensiona con parametros automaticos"
                 elif case == 1 and mode == "A" and method == "steffensen":
-                    reason = "H15: J10 vacia por delta2 cero; B3 queda vacia"
+                    reason = "H15: dependiente del motor de recalculo (formulas); no reproducido en Excel real"
                 else:
                     reason = None
                 if reason:
