@@ -1271,7 +1271,13 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   resolver defaults. **Hipótesis de riesgo, no observada en este sondeo:** si la
   generación automática falla para otra ecuación, puede fallar la exportación
   aun con todos los parámetros manuales informados; este cambio no añade un fallback.
-  **Estado:** CERRADO el 2026-10-04 en el commit `606f9515cf88311a63bb225d16a661887748c7c1`. **Pendiente:** verificar en producción tras el despliegue de Render (descarga de Excel con solo x₀, sin g(x)).
+  **Capturas de Microsoft Excel real aportadas por el director; lectura de las cifras: asesor — Verificado en producción el 2026-10-04
+  (revisión manual del director, Microsoft Excel):** con `x³−2x−5`,
+  solo x₀=2 y g(x) vacío, la descarga del Excel completo funcionó;
+  con x₀=2.5, la celda B2 de Punto Fijo muestra 2.5
+  (el valor manual llega a la plantilla). Servidor en el commit `e90a426`,
+  Live según el panel de Render, informado por el director.
+  **Estado:** CERRADO el 2026-10-04 en el commit `606f9515cf88311a63bb225d16a661887748c7c1`. Verificado en producción (ver arriba).
   Suite: **372 pasan y 26 `xfail`**, dos marcas menos que las 28 anteriores.
 
 - **H13 — ABIERTO: filas del Excel dimensionadas con parámetros automáticos
@@ -1282,6 +1288,18 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   para `x³−2x−5`, 23/22, 14/9, 8/4 y 3/2. Backend: convergió;
   Excel recalculado: no contiene «SI». **Medido:** las filas comunes coinciden
   con Δ=0; los parámetros manuales sí llegan a las fórmulas.
+  **Capturas de Microsoft Excel real aportadas por el director; lectura de las cifras: asesor — Reproducido en Microsoft Excel real, producción,
+  2026-10-04 (director):** `x³−2x−5`, solo x₀=2.5, g(x) vacío.
+  La hoja de Punto Fijo termina en k=3 con «NO» (error 0.000179076 %),
+  mientras la tabla base de Punto Fijo en las hojas de Aitken y Steffensen
+  del mismo libro llega a «SI» en k=4 (3.7814E-10 %).
+  La hoja de Aitken termina en k=1 con «NO» (0.004750984 %),
+  mientras su tabla auxiliar en la hoja de Steffensen llega a «SI»
+  en k=2 (2.60332E-07 %). Steffensen converge en k=1 (1.4269E-11 %).
+  Se provoca cambiando solo x₀. No depende del motor de recálculo.
+  **Hipótesis, no medida:** la app convergería en ese caso
+  (inferido de las tablas auxiliares).
+  **Propuesta del asesor (pendiente de confirmación del director):** H13 antes que H14, porque se provoca cambiando solo x₀.
   **Causa leída del código:** `_method_status(method_key, fx_str)` no recibe
   parámetros manuales; obtiene `_cached_params(fx_str)` y llama al runner con
   ellos (`excel_generator.py:79-100`, especialmente 91-92).
@@ -1348,8 +1366,9 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   caso 2 × modos A/B × seis métodos.
   **Estado:** sin arreglar; decisión docente pendiente.
 
-- **H15 — ABIERTO: Steffensen deja la fila k=1 vacía en el Excel automático.**
-  **Medido:** `x³−2x−5`, modo A: backend con dos filas y convergencia;
+- **H15 — ABIERTO, dependiente del motor de recálculo: Steffensen deja la fila
+  k=1 vacía con `formulas` en el Excel automático.**
+  **Medido con `formulas` 1.3.4:** `x³−2x−5`, modo A: backend con dos filas y convergencia;
   Excel con una fila numérica, B3/C3/D3 vacías y sin «SI».
   K22=K23=K24=2.0945514815423265: el denominador de J10 es 0.0,
   `IFERROR` devuelve `""`; ese texto produce `#VALUE!` dentro de B3 y su
@@ -1365,9 +1384,25 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   alcanza el valor repetido en la cuarta aplicación de g (K22), no en dos.
   **Hipótesis de relación, no verificada:** pertenece a la misma familia que
   H7, H8 y H10, por el tratamiento del denominador nulo o del error no calculable.
-  **Test:** un `xfail(strict=True, raises=AssertionError)`,
-  caso 2, modo A, Steffensen.
-  **Estado:** sin arreglar.
+  **Medido por el director — No reproducido en Microsoft Excel real**
+  (x₀=2, `x³−2x−5`): la hoja de Steffensen muestra en k=1
+  el valor 2.094551482, error 0 y «SI».
+  La fila vacía se observó con `formulas` 1.3.4.
+  **Hipótesis, no verificada:** con el denominador de Δ² en el límite
+  de la precisión, los motores se comportan distinto.
+  **Test (leído):** un `xfail(strict=True, raises=AssertionError)`,
+  caso 2, modo A, Steffensen; documenta el resultado con `formulas`.
+  **Estado, según la medición del director y la auditoría con `formulas`:**
+  dependiente del motor de recálculo.
+
+- **H16 — CANDIDATO (leído, no medido): el Excel ignora la tolerancia manual.**
+  `_excel_params` (`main.py:421-460`) no incluye tol;
+  `excel_generator.py` no la menciona; las plantillas fijan `0.00001`
+  (`excel_templates.py` líneas 333, 397, 445, 512, 555, 643, 690, 753,
+  y posiblemente más).
+  **Hipótesis, no medida:** con una tolerancia manual distinta, la app y el Excel
+  darán filas y veredictos distintos.
+  **Estado:** sin medir; se medirá junto con H13.
 
 - **H5 — CERRADO: Practicar se quedaba EN BLANCO Y EN SILENCIO contra el backend desplegado,
   y yo había afirmado lo contrario.** Descubierto en la regresión completa, apuntando a Render.
@@ -1493,6 +1528,17 @@ En un método individual, un resultado aplicable y convergido muestra la raíz c
 gráfico si es distinta de `None` y no existe ya una marca a distancia < 1e-6 (líneas 526-530).
 La columna Raíz de la tabla comparativa imprime cualquier raíz distinta de `None`, incluso
 en filas N/A (`toPrecision(8)`, línea 273).
+
+**Presentación del Excel — observaciones del asesor sobre capturas de Excel real aportadas por el director**
+
+**Medido (observado en capturas de Microsoft Excel real, según el director),
+no verificado en el código:** la palabra «Ecuación» sale cortada («Ecuac»)
+en la columna A, que se observa angosta; «Base: Aitken (Δ²)» sale truncado
+en Steffensen; junto a «g(x):» en la hoja de Aitken no aparece la fórmula,
+mientras que en Punto Fijo sí. No se ha comprobado la causa en el código.
+
+**Propuesta del asesor (pendiente de confirmación del director):**
+H13 antes que H14, porque se provoca cambiando solo x₀.
 
 **Decisión pendiente: política de convergencia y coherencia Excel/backend (H7 a H15)**
 
