@@ -78,9 +78,9 @@ Otros: **von_mises**.
 
 ## 4. Estado matemático (VERIFICADO — corregido respecto a notas viejas)
 
-- ✅ **362 pasan y 28 `xfail` (documentan H7, H9, H10, H11 y H12–H15).**
-  **Medido el 2026-10-04:** 327 pasan y 5 `xfail` previos + 58 tests de Excel
-  (35 pasan y 23 `xfail`).
+- ✅ **372 pasan y 26 `xfail` (documentan H7, H9, H10, H11 y H13–H15).**
+  **Medido el 2026-10-04:** 327 pasan y 5 `xfail` previos + 66 tests de Excel
+  (45 pasan y 21 `xfail`). H12 cerrado; las dos marcas `xfail` de H12 se retiraron.
 - ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Aitken: con tests propios;
   tener tests no garantiza corrección en todos los casos (ver H9 para Aitken y H11 para Newton).
 - ⚠️ **Secante: 5 tests propios**, pero siguen pendientes las falsas convergencias de H7 y H10.
@@ -867,7 +867,8 @@ En Newton 2º orden, `test_converge` solo exige `root is not None` para la conve
 también comprueba aplicabilidad, pero no exige `converged` ni compara la raíz esperada.
 Newton y Bisección tienen tests específicos de fórmulas en `test_formula_specs.py`.
 La auditoría Excel vs backend del 2026-10-04 añade comparaciones de las 14 plantillas,
-con incumplimientos documentados mediante `xfail(strict=True)` (ver H12–H15).
+con incumplimientos documentados mediante `xfail(strict=True)` (ver H13–H15);
+H12 se cerró con tests de regresión de los endpoints de descarga.
 
 Las mutaciones a, b, c y d sobre `punto_fijo.py` se detectan mediante pruebas en una
 copia fuera del proyecto. La primera tanda dejó sobrevivir b (`root = xk`); los tres
@@ -918,16 +919,20 @@ de filas numéricas y convergencia (hay algún «SI» en el Excel). `pytest.impo
 omite el archivo si ese paquete no está disponible.
 **La integración continua (Etapa C) debe instalar `formulas`; sin él este archivo se omite en silencio y la comparación Excel/backend queda desactivada.**
 Los `xfail` de H13, H14 y H15 aceptan únicamente `AssertionError`;
-los de H12 aceptan únicamente `sympy.SympifyError`. Cualquier otra excepción
-se reporta como fallo y no queda ocultada por la marca. El modo C comprueba que
-`generate_all` con x₀ y sin gx no lance excepción.
+cualquier otra excepción se reporta como fallo. H12 ya no tiene marcas `xfail`.
+El modo C comprueba `api.excel_all` y `api.excel_single` para Punto Fijo, Aitken
+y Steffensen, con solo x₀; dos tests adicionales cubren `excel_all` con x₀ y x₁ sin gx.
 
-**Medido:** el archivo contiene **58 tests: 35 pasan y 23 `xfail(strict=True)`**:
-H14=12, H13=8, H15=1 y H12=2. Tiempo del archivo: **15.70 s** según pytest,
-**18.463 s** de pared; no supera 30 s. Suite completa: **362 pasan y 28 `xfail`**,
-en **15.42 s** según pytest y **18.376 s** de pared, con Python 3.14.5 local.
-Se ejecutó con `python -B` y sin la caché de pytest; el único archivo nuevo del
-proyecto es el test. Los scripts, libros de comprobación y salidas están fuera del repo.
+**Medido el 2026-10-04, rojo y verde:** el archivo contiene **66 tests**.
+Sin modificar el generador: **10 fallan con `SympifyError`, 35 pasan y 21 `xfail`**,
+en 19.43 s. Tras fusionar los parámetros: **45 pasan y 21 `xfail(strict=True)`**
+(H14=12, H13=8, H15=1), en 19.01 s. Los diez tests de regresión pasan.
+Suite completa: **372 pasan y 26 `xfail`**, en 21.02 s, con Python 3.14.5 local.
+Las marcas `xfail` de la suite bajan de **28 a 26** al retirar las dos de H12;
+los casos C se amplían a ocho combinaciones y se añaden dos casos x₀+x₁.
+Build OK (`index-Ck1Jdngw.js`); ESLint: 0 errores y 2 avisos preexistentes.
+Se ejecutó pytest con `python -B` y sin su caché. Los scripts, libros de comprobación
+y salidas están fuera del repo; la corrección modifica el generador y el archivo de test.
 
 **H1 confirmado como desviación:** la hoja de Punto Fijo de `amburger.xlsx` usa
 `g(x)=(x+2)/(x+1)` para `f(x)=x²−2`, un reordenamiento clásico, en lugar de `x−f/f′`.
@@ -1210,24 +1215,64 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   **Test:** `xfail(strict=True)`, caso 8/Newton.
   **Estado:** sin arreglar; decisión pendiente sobre la política de convergencia.
 
-- **H12 — ABIERTO: exportación con x₀ manual y sin gx lanza excepción.**
-  **Medido:** para `x²−2`, x₀=1, y `x³−2x−5`, x₀=2, `_excel_params` +
-  `generate_all` lanza `sympy.core.sympify.SympifyError` al intentar parsear `""`;
-  los mismos payloads funcionan en `method_all`.
-  **Causa leída del código:** `_excel_params` incluye x₀ pero solo añade `g_str`
-  si se recibió gx (`backend/main.py:450-456`). `_build_sheet` completa parámetros
-  únicamente si `params is None`, sin fusionar un override parcial con los defaults
-  (`excel_generator.py:228-229`). Punto Fijo obtiene `g_str=""`
-  (`excel_templates.py:425`), y lo convierte en fórmula (`430`, llamada en `447`);
-  el parseo falla en `sympy_to_excel.py:189` → `_sympify_str`, línea 29.
+- **H12 — CERRADO (2026-10-04): exportación con parámetros manuales parciales.**
+  **Medido antes del arreglo:** para `x²−2` y `x³−2x−5`, `api.excel_all`
+  con solo x₀ o con x₀+x₁ sin gx lanzaba `sympy.core.sympify.SympifyError`
+  al parsear `""`. Punto Fijo era el primer fallo del libro completo;
+  las llamadas individuales confirmaron el mismo fallo en Aitken y Steffensen.
+  **Tabla del sondeo anterior al arreglo, en ambas ecuaciones:**
+
+  | Parámetros manuales | Métodos que lanzan excepción |
+  |---|---|
+  | `{x0}` | Punto Fijo, Aitken y Steffensen |
+  | `{x1}` | Ninguno |
+  | `{a}` | Ninguno |
+  | `{b}` | Ninguno |
+  | `{gx}` | Ninguno |
+  | `{a,b}` | Ninguno |
+  | `{x0,x1}` | Punto Fijo, Aitken y Steffensen |
+
+  **Causa leída del código anterior:** `_excel_params` incluía x₀ pero solo
+  añadía `g_str` si se recibió gx (`backend/main.py:450-456`); `_build_sheet`
+  completaba parámetros únicamente si `params is None`. Las plantillas recibían
+  `g_str=""`, y el parseo fallaba en `sympy_to_excel.py:189` → línea 29.
+  **Cambio aplicado:** `excel_generator.py:228` fusiona los defaults y el override:
+  `params = {**_default_params(method_key, fx_str), **(params or {})}`.
+  Los valores informados por el usuario ganan; las claves ausentes usan los defaults.
   **Leído de `CalcularPage.jsx` (líneas 232, 632 y 803; payloads en 233, 633 y 804),
   no reproducido por la interfaz:** los botones de descarga copian los parámetros
   manuales tal cual respecto a los campos presentes; si gx está informada, normalizan
   su notación antes de enviarla (230, 630 y 801), sin completar una gx ausente.
   El campo g(x) está rotulado «g(x) manual (opcional)» (línea 33).
-  **Tests:** dos `xfail(strict=True, raises=sympy.SympifyError)`, modo C,
-  en `test_excel_vs_backend.py`.
-  **Estado:** sin arreglar.
+  **Medido con el prototipo en memoria, antes de aplicar:** 11 casos de coherencia
+  con equation sola, payload completo de auditoría sin gx y solo x₀: ninguna
+  excepción nueva respecto al código anterior. Los 11 libros automáticos son idénticos
+  celda por celda; los 11 controles completos con la gx automática explícita también.
+  El completo original sin gx reproducía H12 en ocho casos, por lo que allí no había
+  un libro previo comparable; con la fusión, todos los payloads generan el libro.
+  **Hipótesis del asesor sobre Secante descartada por medición**, respecto a lanzar
+  excepciones con solo x₀ o solo x₁. Sí se midieron semillas incompletas incorrectas
+  en la cúbica: el Excel anterior usaba (2,2) o (1,3); la fusión usa (2,3), igual que
+  `method_all`. Los cuatro casos de Secante fusionada y recalculada con `formulas`
+  coinciden con el backend desde k=1: seis filas, Δ=0 y convergencia en ambos lados.
+  **Tests medidos:** diez regresiones de descarga fallan con `SympifyError` en rojo
+  y pasan en verde; se retiraron los dos `xfail` de H12.
+  **Medido el 2026-10-04, sondeo extra con prototipo en memoria:** seis payloads
+  completos con gx explícita igual a x: 1/x−2 (x₀=0.4, x₁=0.6, [0.25,0.75]),
+  sqrt(x)−2 (3,5,[1,6]), exp(x)−3 (1,1.2,[0,2]), sin(x)
+  (0.1,0.2,[−0.5,0.5]), x² (0.1,0.2,[−0.5,0.5]) y log(x)−1
+  (2.5,3,[2,4]). Ambos códigos generaron los seis libros, sin excepciones nuevas;
+  todas las celdas, tipos y fórmulas fueron idénticos. Inventario antes/después:
+  5245 archivos y 716 directorios, sin cambios de rutas, tamaños, fechas ni SHA256.
+  **Leído del código, riesgo residual:** `_default_params` no tiene protección
+  ante fallos de `generate_params`: llama a `_cached_params` (203), y esta llama
+  a `generate_params(parse_equation(fx_str))` sin capturar excepciones (192-196).
+  La fusión invoca esta ruta incluso con un override completo, que antes evitaba
+  resolver defaults. **Hipótesis de riesgo, no observada en este sondeo:** si la
+  generación automática falla para otra ecuación, puede fallar la exportación
+  aun con todos los parámetros manuales informados; este cambio no añade un fallback.
+  **Estado:** CERRADO el 2026-10-04 en el commit `606f9515cf88311a63bb225d16a661887748c7c1`. **Pendiente:** verificar en producción tras el despliegue de Render (descarga de Excel con solo x₀, sin g(x)).
+  Suite: **372 pasan y 26 `xfail`**, dos marcas menos que las 28 anteriores.
 
 - **H13 — ABIERTO: filas del Excel dimensionadas con parámetros automáticos
   aunque las fórmulas usan parámetros manuales.**
@@ -1283,15 +1328,22 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   - Newton Modificado: libro 2.094535830859846; congelada 2.094537162051044;
     Excel 2.094537162051044; backend 2.094535830859846.
 
-  **Leído, búsqueda en `CLAUDE.md` y los otros `.md`:** sin decisión documentada
-  sobre mantener f″ constante para ecuaciones generales. Sí hay descripciones
-  del hardcoded de la referencia en `_historico/Archivo 05_ANALISIS_EXCEL.md`
-  (423, 683-695 y 729), sin una decisión matemática explícita para ese caso.
+  **Leído de `_historico/Archivo 05_ANALISIS_EXCEL.md` (683-695):**
+  la referencia usa `=$B$9` en Newton Modificado, `=$B$8` en Chebyshev y Halley,
+  `=$B$7` en Super Halley y el literal `2` en Newton 2º orden y Ostrowsky.
+  Esta lectura es del documento histórico; no amplía las tres hojas de `amburger.xlsx`
+  que se inspeccionaron directamente.
+  **Leído del §10 del mismo archivo (715-735):** recomienda sustituir
+  `=$B$8 → 2` por `=$B$8 → f″(x) calculada por SymPy`, con el ejemplo
+  `x³−4x+1`, cuya f″=6x no es constante.
+  **Interpretación del asesor, no verificada:** la recomendación no consideró
+  la dependencia de x y de ahí viene la f″ fija. No se ha verificado esta cadena
+  causal ni se atribuye una intención al docente.
   El comentario «C1» se refiere a congelar filas tras el primer «SI»
   (`excel_templates.py:113-123`); en 919 y 1146 explica convertir un literal en
   fórmula para vaciar la fila congelada, no justifica mantener f″ fija.
-  **Hipótesis pendiente:** que la f″ fija responda a una decisión intencional del
-  docente; no se atribuye una intención a partir del código.
+  **Pregunta pendiente:** la hoja del docente es un ejemplo para x²−2;
+  ¿confirma que para otras ecuaciones f″ debe evaluarse en cada xₖ?
   **Tests:** doce `xfail(strict=True, raises=AssertionError)`,
   caso 2 × modos A/B × seis métodos.
   **Estado:** sin arreglar; decisión docente pendiente.
@@ -1423,8 +1475,8 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   `BiseccionTemplate` de `backend/excel/excel_templates.py`, construye las hojas en
   memoria y comprueba sus fórmulas contra `formula_specs.py` mediante 10 tests.
   **Medido el 2026-10-04:** `test_excel_vs_backend.py` compara las 14 plantillas
-  mediante 56 combinaciones de hojas y dos contratos de generación; 23 son
-  `xfail(strict=True)` por H12–H15. Los **362 tests que pasan y 28 `xfail`**
+  mediante 56 combinaciones de hojas y diez regresiones de descarga; 21 son
+  `xfail(strict=True)` por H13–H15. Los **372 tests que pasan y 26 `xfail`**
   no equivalen a cobertura exhaustiva de las fórmulas, dominios ni casos límite.
   **Consecuencia para quien lo toque:** un cambio en una plantilla sin cobertura puede
   pasar la suite; hay que añadir tests antes de modificarla. FASE 3 mantuvo las
@@ -1446,7 +1498,8 @@ en filas N/A (`toPrecision(8)`, línea 273).
 
 Una sola consulta al docente. **Preguntas pendientes, no decisiones implementadas:**
 
-- ¿La f″ fija de la hoja del docente es intencional? (H14; la intención no se ha verificado).
+- La hoja del docente es un ejemplo para x²−2; ¿confirma que para otras ecuaciones
+  f″ debe evaluarse en cada xₖ? (H14).
 - ¿Debe el Excel redimensionarse con parámetros manuales? (H13).
 - ¿Qué g(x) automática usar en Punto Fijo y en las capas base de Aitken/Steffensen? (H1).
 
@@ -1559,7 +1612,7 @@ cd frontend && npx eslint src/App.jsx          # linter
 
 # Backend (los imports son `from backend.X` → correr DESDE LA RAÍZ del repo, no desde backend/)
 uvicorn backend.main:app --reload              # servidor (desde la raíz) — ⚠️ PENDIENTE DE VERIFICAR (deducido de los imports, no ejecutado; confirmar al tocar backend para G2)
-python -m pytest backend/test                  # 362 pasan y 28 xfail (documentan H7, H9, H10, H11 y H12–H15; desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
+python -m pytest backend/test                  # 372 pasan y 26 xfail (documentan H7, H9, H10, H11 y H13–H15; desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
 ```
 
 **Dependencias de entorno (solo dev, no en el repo):** fastapi, uvicorn, pytest, formulas, scipy.
