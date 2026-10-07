@@ -25,7 +25,6 @@ FPP_METHODS = {
     "newton_modificado", "newton_2do_orden", "chebyshev",
     "halley", "super_halley", "ostrowsky",
 }
-MANUAL_SIZE_METHODS = {"biseccion", "regula_falsi", "punto_fijo", "aitken"}
 API_KEYS = {
     "newton_raphson": "newton",
     "newton_2do_orden": "newton_segundo_orden",
@@ -44,6 +43,8 @@ def _payload(case, mode):
         data.update(x0=x0, x1=x1, a=a, b=b, gx=gx)
     elif mode == "C":
         data["x0"] = x0
+    elif mode == "D":
+        data["x0"] = (3.0, 2.5)[case]
     return data
 
 
@@ -137,13 +138,13 @@ def _sheet_result(ws, method, values):
 
 @pytest.fixture(scope="module")
 def recalculated_books(tmp_path_factory):
-    """Genera y recalcula una vez cada uno de los cuatro libros A/B."""
+    """Genera y recalcula una vez cada uno de los seis libros A/B/D."""
     directory = tmp_path_factory.mktemp("excel_vs_backend")
     repo = Path(__file__).resolve().parents[2]
     assert directory != repo and repo not in directory.parents
     books = {}
     for case in range(len(CASES)):
-        for mode in ("A", "B"):
+        for mode in ("A", "B", "D"):
             payload = _payload(case, mode)
             backend = _backend(payload)
             path = directory / f"case_{case + 1}_{mode}.xlsx"
@@ -168,13 +169,13 @@ def recalculated_books(tmp_path_factory):
 
 def _comparisons():
     for case in range(len(CASES)):
-        for mode in ("A", "B"):
+        for mode in ("A", "B", "D"):
             for method in ALL_METHODS:
                 marks = []
-                if case == 1 and method in FPP_METHODS:
+                if mode == "D" and case == 1 and method in FPP_METHODS:
+                    reason = "H14: Excel fija f'' en x0; backend la evalua en cada xk"
+                elif mode in ("A", "B") and case == 1 and method in FPP_METHODS:
                     reason = "H14: Excel fija f''(x0); backend evalua f''(xk)"
-                elif mode == "B" and method in MANUAL_SIZE_METHODS:
-                    reason = "H13: Excel dimensiona con parametros automaticos"
                 elif case == 1 and mode == "A" and method == "steffensen":
                     reason = "H15: dependiente del motor de recalculo (formulas); no reproducido en Excel real"
                 else:

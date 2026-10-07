@@ -57,29 +57,29 @@ from backend.methods.newton_family import (
     run_ostrowsky as _run_ostrowsky,
 )
 
-# method_key (igual que TEMPLATE_REGISTRY) -> runner(eq, params) -> MethodResult
+# method_key (igual que TEMPLATE_REGISTRY) -> runner(eq, params, **kwargs)
 _METHOD_RUNNERS = {
-    "newton_raphson":    lambda eq, p: _run_newton(eq, p),
-    "biseccion":         lambda eq, p: _run_biseccion(eq, p),
-    "regula_falsi":      lambda eq, p: _run_regula_falsi(eq, p),
-    "secante":           lambda eq, p: _run_secante(eq, p),
-    "punto_fijo":        lambda eq, p: _run_punto_fijo(eq, p),
-    "aitken":            lambda eq, p: _run_aitken(eq, p),
-    "steffensen":        lambda eq, p: _run_steffensen(eq, p),
-    "von_mises":         lambda eq, p: _run_von_mises(eq, p),
-    "newton_modificado": lambda eq, p: _run_newton_modificado(eq, p),
-    "newton_2do_orden":  lambda eq, p: _run_newton_2do(eq, p),
-    "chebyshev":         lambda eq, p: _run_chebyshev(eq, p),
-    "halley":            lambda eq, p: _run_halley(eq, p),
-    "super_halley":      lambda eq, p: _run_super_halley(eq, p),
-    "ostrowsky":         lambda eq, p: _run_ostrowsky(eq, p),
+    "newton_raphson":    _run_newton,
+    "biseccion":         _run_biseccion,
+    "regula_falsi":      _run_regula_falsi,
+    "secante":           _run_secante,
+    "punto_fijo":        _run_punto_fijo,
+    "aitken":            _run_aitken,
+    "steffensen":        _run_steffensen,
+    "von_mises":         _run_von_mises,
+    "newton_modificado": _run_newton_modificado,
+    "newton_2do_orden":  _run_newton_2do,
+    "chebyshev":         _run_chebyshev,
+    "halley":            _run_halley,
+    "super_halley":      _run_super_halley,
+    "ostrowsky":         _run_ostrowsky,
 }
 
 
-def _method_status(method_key: str, fx_str: str):
+def _method_status(method_key: str, fx_str: str, sheet_params: dict | None = None):
     """
-    Ejecuta el método numérico ya existente (mismos seeds que el Excel vía
-    auto_params) y devuelve (applicable, converged, reason, iteration_count),
+    Ejecuta el método con los parámetros de la hoja (auto si son None)
+    y devuelve (applicable, converged, reason, iteration_count),
     o None si el método no tiene runner o falla al evaluarse.
     """
     runner = _METHOD_RUNNERS.get(method_key)
@@ -89,7 +89,20 @@ def _method_status(method_key: str, fx_str: str):
         from backend.core.equation_parser import parse_equation
         eq = parse_equation(fx_str)
         params = _cached_params(fx_str)
-        res = runner(eq, params)
+        kwargs = {}
+        if sheet_params:
+            if method_key in {"biseccion", "regula_falsi"}:
+                kwargs.update(a=sheet_params.get("a0"), b=sheet_params.get("b0"))
+            else:
+                kwargs["x0"] = sheet_params.get("x0")
+                if method_key == "secante":
+                    kwargs["x1"] = sheet_params.get("x1")
+                elif method_key in {"punto_fijo", "aitken", "steffensen"}:
+                    if sheet_params.get("g_str"):
+                        from copy import copy
+                        params = copy(params)
+                        params.gx_sympy = expr_to_sympy(sheet_params["g_str"])
+        res = runner(eq, params, **kwargs)
     except Exception:
         return None
     return (
@@ -225,6 +238,7 @@ def _default_params(method_key: str, fx_str: str) -> dict[str, Any]:
 def _build_sheet(wb: Workbook, method_key: str, fx_str: str,
                  params: dict | None, n_iter: int, eq_label: str) -> None:
     """Add a single method sheet to wb."""
+    status = _method_status(method_key, fx_str, params)
     params = {**_default_params(method_key, fx_str), **(params or {})}
 
     sheet_name = SHEET_NAMES[method_key]
@@ -233,7 +247,6 @@ def _build_sheet(wb: Workbook, method_key: str, fx_str: str,
     # Si el método NO es aplicable o NO converge para esta ecuación, mostrar un
     # panel explicativo (con el motivo que ya calcula el backend) en lugar de una
     # tabla de fórmulas que se llenaría de #NUM!/#DIV/0!.
-    status = _method_status(method_key, fx_str)
     if status is not None:
         applicable, converged, reason, itc = status
         if (not applicable) or (not converged):
