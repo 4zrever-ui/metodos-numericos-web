@@ -78,9 +78,10 @@ Otros: **von_mises**.
 
 ## 4. Estado matemático (VERIFICADO — corregido respecto a notas viejas)
 
-- ✅ **372 pasan y 26 `xfail` (documentan H7, H9, H10, H11 y H13–H15).**
-  **Medido el 2026-10-04:** 327 pasan y 5 `xfail` previos + 66 tests de Excel
-  (45 pasan y 21 `xfail`). H12 cerrado; las dos marcas `xfail` de H12 se retiraron.
+- ✅ **402 pasan y 24 `xfail` (documentan H7, H9, H10, H11, H14 y H15).**
+  **Medido el 2026-10-04:** 327 pasan y 5 `xfail` previos + 94 tests de Excel
+  (75 pasan y 19 `xfail`). H12 y H13 cerrados en el código; H13 pendiente de
+  verificación en producción con x₀=2.5.
 - ✅ Newton, Bisección, Halley, Chebyshev, Newton Modificado, Aitken: con tests propios;
   tener tests no garantiza corrección en todos los casos (ver H9 para Aitken y H11 para Newton).
 - ⚠️ **Secante: 5 tests propios**, pero siguen pendientes las falsas convergencias de H7 y H10.
@@ -867,8 +868,9 @@ En Newton 2º orden, `test_converge` solo exige `root is not None` para la conve
 también comprueba aplicabilidad, pero no exige `converged` ni compara la raíz esperada.
 Newton y Bisección tienen tests específicos de fórmulas en `test_formula_specs.py`.
 La auditoría Excel vs backend del 2026-10-04 añade comparaciones de las 14 plantillas,
-con incumplimientos documentados mediante `xfail(strict=True)` (ver H13–H15);
-H12 se cerró con tests de regresión de los endpoints de descarga.
+con incumplimientos documentados mediante `xfail(strict=True)` (ver H14 y H15);
+H12 se cerró con tests de regresión de los endpoints de descarga y H13 con
+comparaciones de los parámetros manuales completos y de solo x₀.
 
 Las mutaciones a, b, c y d sobre `punto_fijo.py` se detectan mediante pruebas en una
 copia fuera del proyecto. La primera tanda dejó sobrevivir b (`root = xk`); los tres
@@ -906,24 +908,27 @@ ocultar errores intermedios, como ocurre en H15. Esta medición usa el motor
 `formulas`, no una ejecución de Microsoft Excel ni de LibreOffice.
 
 En modo A, comparando por k: **21 de 28 hojas con Δ=0**, seis con diferencias
-de aproximadamente 1e-6 a 1e-11 (H14; máximo medido 1.3311911986058078e-06,
+de aproximadamente 1e-6 a 1e-11 con x₀=2 (H14; máximo medido 1.3311911986058078e-06,
 mínimo entre esos seis máximos 9.25450827082841e-11), y una no comparable (H15).
+Ese intervalo corresponde a x₀=2, no al sondeo posterior con x₀=2.5.
 Secante difiere solo en el layout de k=0: F2 no contiene `x_new`; las comparaciones
 numéricas y el recuento de filas de Secante usan **k≥1** en ambos lados.
 
 `backend/test/test_excel_vs_backend.py` reutiliza la lectura por hoja/coordenada
 y la comparación por k del script externo de auditoría. Su fixture de módulo
-genera y recalcula una vez cada libro A/B, en una carpeta temporal fuera del repo.
+genera y recalcula una vez cada uno de los seis libros A/B/D, en una carpeta
+temporal fuera del repo. **Leído del test:** el modo D usa solo x₀=3 para x²−2
+y solo x₀=2.5 para x³−2x−5: 28 comparaciones adicionales.
 Compara `x_new` con tolerancia absoluta 1e-12 (sin tolerancia relativa), número
 de filas numéricas y convergencia (hay algún «SI» en el Excel). `pytest.importorskip("formulas")`
 omite el archivo si ese paquete no está disponible.
 **La integración continua (Etapa C) debe instalar `formulas`; sin él este archivo se omite en silencio y la comparación Excel/backend queda desactivada.**
-Los `xfail` de H13, H14 y H15 aceptan únicamente `AssertionError`;
+Los `xfail` de H14 y H15 aceptan únicamente `AssertionError`;
 cualquier otra excepción se reporta como fallo. H12 ya no tiene marcas `xfail`.
 El modo C comprueba `api.excel_all` y `api.excel_single` para Punto Fijo, Aitken
 y Steffensen, con solo x₀; dos tests adicionales cubren `excel_all` con x₀ y x₁ sin gx.
 
-**Medido el 2026-10-04, rojo y verde:** el archivo contiene **66 tests**.
+**Medido el 2026-10-04, rojo y verde de H12 (registro histórico):** entonces el archivo contenía **66 tests**.
 Sin modificar el generador: **10 fallan con `SympifyError`, 35 pasan y 21 `xfail`**,
 en 19.43 s. Tras fusionar los parámetros: **45 pasan y 21 `xfail(strict=True)`**
 (H14=12, H13=8, H15=1), en 19.01 s. Los diez tests de regresión pasan.
@@ -933,6 +938,19 @@ los casos C se amplían a ocho combinaciones y se añaden dos casos x₀+x₁.
 Build OK (`index-Ck1Jdngw.js`); ESLint: 0 errores y 2 avisos preexistentes.
 Se ejecutó pytest con `python -B` y sin su caché. Los scripts, libros de comprobación
 y salidas están fuera del repo; la corrección modifica el generador y el archivo de test.
+
+**Medido el 2026-10-04, rojo y verde de H13:** el archivo contiene **94 tests**.
+Antes de corregir el generador: **25 fallan con `AssertionError`, 56 pasan y
+13 `xfail`**, en 30.89 s. Tras corregirlo, sin añadir marcas: **6 fallan,
+75 pasan y 13 `xfail`**, en 33.50 s; los seis fallos son H14 en caso 2/modo D.
+Tras marcar únicamente esos seis: **75 pasan y 19 `xfail(strict=True,
+raises=AssertionError)`** (H14=18, H15=1), en 32.74 s.
+Suite completa: **402 pasan y 24 `xfail`**, en 35.52 s, Python 3.14.5 local.
+Se retiraron las ocho marcas de H13 y se añadieron seis de H14: **26 → 24 `xfail`**
+en la suite. El archivo tarda más de 30 s; se informó al director.
+Build y ESLint dieron código 0: `index-Ck1Jdngw.js`, 613 ms de build,
+0 errores y 2 avisos preexistentes en `FunctionGraph.jsx`.
+**Pendiente:** verificar H13 en producción descargando con solo x₀=2.5.
 
 **H1 confirmado como desviación:** la hoja de Punto Fijo de `amburger.xlsx` usa
 `g(x)=(x+2)/(x+1)` para `f(x)=x²−2`, un reordenamiento clásico, en lugar de `x−f/f′`.
@@ -1278,10 +1296,11 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   (el valor manual llega a la plantilla). Servidor en el commit `e90a426`,
   Live según el panel de Render, informado por el director.
   **Estado:** CERRADO el 2026-10-04 en el commit `606f9515cf88311a63bb225d16a661887748c7c1`. Verificado en producción (ver arriba).
-  Suite: **372 pasan y 26 `xfail`**, dos marcas menos que las 28 anteriores.
+  Suite al cerrar H12 (medición histórica): **372 pasan y 26 `xfail`**, dos marcas menos que las 28 anteriores.
 
-- **H13 — ABIERTO: filas del Excel dimensionadas con parámetros automáticos
-  aunque las fórmulas usan parámetros manuales.**
+- **H13 — CERRADO EN EL CÓDIGO el 2026-10-04; verificación en producción pendiente**
+  Filas del Excel dimensionadas con parámetros automáticos
+  aunque las fórmulas usan parámetros manuales.
   **Medido en modo B:** Bisección, Regula Falsi, Punto Fijo y Aitken terminan
   antes de la convergencia del backend en ambos casos. Filas backend/Excel:
   para `x²−2`, 24/22, 11/6, 10/5 y 4/3, respectivamente;
@@ -1297,27 +1316,77 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   mientras su tabla auxiliar en la hoja de Steffensen llega a «SI»
   en k=2 (2.60332E-07 %). Steffensen converge en k=1 (1.4269E-11 %).
   Se provoca cambiando solo x₀. No depende del motor de recálculo.
-  **Hipótesis, no medida:** la app convergería en ese caso
-  (inferido de las tablas auxiliares).
-  **Propuesta del asesor (pendiente de confirmación del director):** H13 antes que H14, porque se provoca cambiando solo x₀.
-  **Causa leída del código:** `_method_status(method_key, fx_str)` no recibe
-  parámetros manuales; obtiene `_cached_params(fx_str)` y llama al runner con
-  ellos (`excel_generator.py:79-100`, especialmente 91-92).
-  `_build_sheet` usa ese estado y su `iteration_count` (`237-246`), y
-  `_sized_n_iter` lo transforma en número de filas (`125-136`).
-  **Hipótesis inferida del código, no medida:** el panel «no converge»
-  (`excel_generator.py:237-244`) también se decide con la corrida automática,
-  por lo que unos parámetros manuales que sí convergen podrían recibir el panel
-  de error.
-  **Tests:** ocho `xfail(strict=True, raises=AssertionError)`,
-  modo B × dos casos × cuatro métodos.
-  **Estado:** sin arreglar; decisión pendiente sobre el redimensionamiento.
+  **Medido posteriormente por `method_all`:** con ese mismo payload,
+  Punto Fijo, Aitken y Steffensen convergen; la hipótesis anterior se confirmó.
+  **Propuesta del asesor previa al cierre de H13 (registro histórico):** H13 antes que H14, porque se provoca cambiando solo x₀.
+  **Causa leída del código anterior:** `_method_status(method_key, fx_str)` no
+  recibía parámetros manuales; obtenía `_cached_params(fx_str)` y llamaba al runner
+  con ellos (`excel_generator.py:79-100`, especialmente 91-92, antes del cambio).
+  `_build_sheet` usaba ese estado y su `iteration_count` (`237-246` anteriores),
+  y `_sized_n_iter` lo transformaba en número de filas (`125-136` anteriores).
+  **Hipótesis inferida del código anterior, no medida:** el panel «no converge»
+  (`excel_generator.py:237-244` anteriores) también se decidía con la corrida
+  automática, por lo que unos parámetros manuales que sí convergen podrían recibir
+  el panel de error. La corrección hace que el estado use los parámetros de la hoja.
+  **Medido antes de la corrección, con `formulas` 1.3.4 y `method_all`:**
+  modo D, solo x₀; sin gx ni tol manuales. En cada par: backend/Excel.
+  Secante se cuenta y compara desde k=1.
+
+  | Método | x²−2, x₀=3: filas | Convergió | x³−2x−5, x₀=2.5: filas | Convergió |
+  |---|---|---|---|---|
+  | biseccion | 22/22 | True/True | 22/22 | True/True |
+  | regula_falsi | 6/6 | True/True | 9/9 | True/True |
+  | punto_fijo | 6/5 | True/False | 5/4 | True/False |
+  | aitken | 4/3 | True/False | 3/2 | True/False |
+  | steffensen | 2/2 | True/True | 2/2 | True/True |
+  | newton_raphson | 6/5 | True/False | 5/4 | True/False |
+  | newton_modificado | 6/5 | True/False | 5/4 | True/False |
+  | newton_2do_orden | 2/2 | True/True | 3/3 | True/False |
+  | chebyshev | 4/4 | True/True | 4/3 | True/False |
+  | halley | 4/4 | True/True | 4/3 | True/False |
+  | super_halley | 4/3 | True/False | 3/3 | True/False |
+  | ostrowsky | 4/3 | True/False | 3/3 | True/False |
+  | secante | 6/6 | True/True | 6/6 | True/True |
+  | von_mises | 24/18 | True/False | 14/7 | True/False |
+
+  **Medido:** siete hojas truncadas en cada caso. Con x²−2: Punto Fijo, Aitken,
+  Newton, Newton Modificado, Super Halley, Ostrowsky y Von Mises. Con x³−2x−5:
+  Punto Fijo, Aitken, Newton, Newton Modificado, Chebyshev, Halley y Von Mises.
+  Las filas comunes tienen Δ=0 salvo los seis métodos de f″ de la cúbica (H14).
+
+  **Medido, los 25 fallos del rojo:** todos son `AssertionError`; 22 por número
+  de filas y tres por `x_new en k=1`. La lista completa, agrupada por caso/modo:
+
+  | Caso/modo | Métodos que fallan | Aserción |
+  |---|---|---|
+  | case1-B | biseccion, regula_falsi, punto_fijo, aitken | Número de filas (4) |
+  | case2-B | biseccion, regula_falsi, punto_fijo, aitken | Número de filas (4) |
+  | case1-D | punto_fijo, aitken, newton_raphson, newton_modificado, super_halley, ostrowsky, von_mises | Número de filas (7) |
+  | case2-D | punto_fijo, aitken, newton_raphson, newton_modificado, chebyshev, halley, von_mises | Número de filas (7) |
+  | case2-D | newton_2do_orden, super_halley, ostrowsky | x_new en k=1 (3), H14 |
+
+  **Cambio leído del código aplicado:** `_method_status` recibe los parámetros
+  de la hoja (79-105), traduce a/b, x₀/x₁ o x₀/gx según el método y ejecuta
+  el runner con ellos. La gx explícita se introduce en una copia de los parámetros
+  automáticos. `_build_sheet` pasa el dict original antes de completar defaults
+  (241-242); el estado y el número de filas se calculan con esos parámetros.
+  **Medido con prototipo en memoria:** los 11 casos de coherencia con `params=None`
+  producen libros idénticos celda por celda al código anterior.
+  **Medido tras aplicar:** los ocho casos B antes marcados H13 pasan; en D pasan
+  las 14 hojas de x²−2 y ocho de la cúbica. Sus otros seis fallos son H14, no
+  truncamiento. Se retiraron todos los `xfail` de H13.
+  **Estado:** corregido en el commit `d2be3565c7e3f9476d5ca07022b9f6ad09ade161`. **Pendiente:** verificación en producción con solo x₀=2.5.
 
 - **H14 — ABIERTO: f″ fija en el Excel y variable en el backend.**
   **Medido:** con `x³−2x−5`, x₀=2, los seis métodos que usan f″ difieren entre
   capas desde k=1 en modos A y B: Newton Modificado, Newton 2do Orden, Chebyshev,
   Halley, Super Halley y Ostrowsky. Para `x²−2`, f″=2 es constante y no aparece
   esta diferencia en los casos auditados.
+  **Medido con x₀=2.5, modo D, x³−2x−5:** |Δ x_new| en k=1:
+  Newton Modificado 1.41e-3; Chebyshev 3.64e-5; Halley 1.09e-5;
+  Newton 2º orden 4.35e-6; Ostrowsky 1.60e-6; Super Halley 7.33e-7.
+  Los seis fallan con `AssertionError: x_new en k=1` después de cerrar H13.
+  El intervalo «1e-6 a 1e-11» de la auditoría inicial corresponde a x₀=2.
   **Causa leída del código:** las seis plantillas calculan f″(x₀) una vez.
   En `excel_templates.py`: Newton Modificado 843-848/864, Newton 2do Orden
   901-903/920, Chebyshev 955-962/978, Halley 1013-1019/1035, Super Halley
@@ -1362,8 +1431,9 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   fórmula para vaciar la fila congelada, no justifica mantener f″ fija.
   **Pregunta pendiente:** la hoja del docente es un ejemplo para x²−2;
   ¿confirma que para otras ecuaciones f″ debe evaluarse en cada xₖ?
-  **Tests:** doce `xfail(strict=True, raises=AssertionError)`,
-  caso 2 × modos A/B × seis métodos.
+  **Tests (leído):** dieciocho `xfail(strict=True, raises=AssertionError)`,
+  caso 2 × modos A/B/D × seis métodos. Las seis marcas D usan la razón
+  `H14: Excel fija f'' en x0; backend la evalua en cada xk`.
   **Estado:** sin arreglar; decisión docente pendiente.
 
 - **H15 — ABIERTO, dependiente del motor de recálculo: Steffensen deja la fila
@@ -1395,14 +1465,40 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   **Estado, según la medición del director y la auditoría con `formulas`:**
   dependiente del motor de recálculo.
 
-- **H16 — CANDIDATO (leído, no medido): el Excel ignora la tolerancia manual.**
-  `_excel_params` (`main.py:421-460`) no incluye tol;
+- **H16 — CONFIRMADO, medido: el Excel ignora la tolerancia manual.**
+  **Leído del código:** `_excel_params` (`main.py:421-460`) no incluye tol;
   `excel_generator.py` no la menciona; las plantillas fijan `0.00001`
   (`excel_templates.py` líneas 333, 397, 445, 512, 555, 643, 690, 753,
-  y posiblemente más).
-  **Hipótesis, no medida:** con una tolerancia manual distinta, la app y el Excel
-  darán filas y veredictos distintos.
-  **Estado:** sin medir; se medirá junto con H13.
+  y posiblemente más). El cambio de H13 no transporta tol.
+  **Medido antes de la corrección de H13:** `x³−2x−5` con
+  `{x0: 2.5, tol: 1e-8}`. Frente al libro con solo `{x0: 2.5}`, el Excel quedó
+  **idéntico celda por celda**, incluidos tipos y fórmulas; `method_all` sí cambió
+  sus filas y, en Bisección, su veredicto. Estos números son del sondeo anterior
+  a H13; no describen el dimensionamiento posterior a su corrección.
+  En los pares siguientes: backend/Excel; Secante desde k=1.
+
+  | Método | Filas | Convergió | Máximo Δ en filas comunes |
+  |---|---|---|---|
+  | biseccion | 26/22 | False/True | 0 |
+  | regula_falsi | 14/9 | True/True | 0 |
+  | punto_fijo | 5/4 | True/False | 0 |
+  | aitken | 4/2 | True/False | 0 |
+  | steffensen | 2/2 | True/True | 0 |
+  | newton_raphson | 5/4 | True/False | 0 |
+  | newton_modificado | 5/4 | True/False | 0.00141 |
+  | newton_2do_orden | 4/3 | True/False | 4.35e-06 |
+  | chebyshev | 4/3 | True/False | 3.64e-05 |
+  | halley | 4/3 | True/False | 1.09e-05 |
+  | super_halley | 4/3 | True/False | 7.33e-07 |
+  | ostrowsky | 4/3 | True/False | 1.6e-06 |
+  | secante | 7/6 | True/True | 0 |
+  | von_mises | 20/7 | True/False | 0 |
+
+  **Medido:** trece de catorce hojas tienen menos filas que el backend;
+  solo Steffensen coincide en filas y veredicto. Las diferencias numéricas
+  de la familia f″ son H14; se distinguen de ignorar tol.
+  **Estado:** confirmado, sin corregir. H13 corrige el uso de las semillas y gx
+  manuales para dimensionar; H16 sigue pendiente.
 
 - **H5 — CERRADO: Practicar se quedaba EN BLANCO Y EN SILENCIO contra el backend desplegado,
   y yo había afirmado lo contrario.** Descubierto en la regresión completa, apuntando a Render.
@@ -1510,8 +1606,9 @@ los cerrados quedan aquí por su gravedad, para que nadie los reintroduzca sin s
   `BiseccionTemplate` de `backend/excel/excel_templates.py`, construye las hojas en
   memoria y comprueba sus fórmulas contra `formula_specs.py` mediante 10 tests.
   **Medido el 2026-10-04:** `test_excel_vs_backend.py` compara las 14 plantillas
-  mediante 56 combinaciones de hojas y diez regresiones de descarga; 21 son
-  `xfail(strict=True)` por H13–H15. Los **372 tests que pasan y 26 `xfail`**
+  mediante 84 combinaciones de hojas A/B/D y diez regresiones de descarga; 19 son
+  `xfail(strict=True, raises=AssertionError)` por H14 y H15.
+  Los **402 tests que pasan y 24 `xfail`**
   no equivalen a cobertura exhaustiva de las fórmulas, dominios ni casos límite.
   **Consecuencia para quien lo toque:** un cambio en una plantilla sin cobertura puede
   pasar la suite; hay que añadir tests antes de modificarla. FASE 3 mantuvo las
@@ -1537,16 +1634,18 @@ en la columna A, que se observa angosta; «Base: Aitken (Δ²)» sale truncado
 en Steffensen; junto a «g(x):» en la hoja de Aitken no aparece la fórmula,
 mientras que en Punto Fijo sí. No se ha comprobado la causa en el código.
 
-**Propuesta del asesor (pendiente de confirmación del director):**
+**Propuesta del asesor previa al cierre de H13 (registro histórico):**
 H13 antes que H14, porque se provoca cambiando solo x₀.
 
-**Decisión pendiente: política de convergencia y coherencia Excel/backend (H7 a H15)**
+**Decisión pendiente: política de convergencia y coherencia Excel/backend (H7 a H16; H13 cerrado)**
 
 Una sola consulta al docente. **Preguntas pendientes, no decisiones implementadas:**
 
 - La hoja del docente es un ejemplo para x²−2; ¿confirma que para otras ecuaciones
   f″ debe evaluarse en cada xₖ? (H14).
-- ¿Debe el Excel redimensionarse con parámetros manuales? (H13).
+- **Leído del cambio autorizado:** H13 ya redimensiona con parámetros manuales;
+  queda pendiente su verificación en producción con x₀=2.5.
+- (H16) **Propuesta del asesor, no implementada:** poner la tolerancia en una celda visible y editable del Excel, que las fórmulas lean, y que el generador la rellene con el valor de la interfaz. ¿La acepta el docente, o prefiere otra solución?
 - ¿Qué g(x) automática usar en Punto Fijo y en las capas base de Aitken/Steffensen? (H1).
 
 **Propuesta del director para convergencia, no implementada:**
@@ -1658,7 +1757,7 @@ cd frontend && npx eslint src/App.jsx          # linter
 
 # Backend (los imports son `from backend.X` → correr DESDE LA RAÍZ del repo, no desde backend/)
 uvicorn backend.main:app --reload              # servidor (desde la raíz) — ⚠️ PENDIENTE DE VERIFICAR (deducido de los imports, no ejecutado; confirmar al tocar backend para G2)
-python -m pytest backend/test                  # 372 pasan y 26 xfail (documentan H7, H9, H10, H11 y H13–H15; desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
+python -m pytest backend/test                  # 402 pasan y 24 xfail (documentan H7, H9, H10, H11, H14 y H15; desde la raíz; `cd backend && pytest` falla: ModuleNotFoundError) — VERIFICADO
 ```
 
 **Dependencias de entorno (solo dev, no en el repo):** fastapi, uvicorn, pytest, formulas, scipy.
