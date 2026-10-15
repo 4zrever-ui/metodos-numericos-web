@@ -1637,28 +1637,147 @@ mientras que en Punto Fijo sí. No se ha comprobado la causa en el código.
 **Propuesta del asesor previa al cierre de H13 (registro histórico):**
 H13 antes que H14, porque se provoca cambiando solo x₀.
 
-**Decisión pendiente: política de convergencia y coherencia Excel/backend (H7 a H16; H13 cerrado)**
+**Decisiones del docente (transmitidas verbalmente por el director; no hay documento del docente)**
 
-Una sola consulta al docente. **Preguntas pendientes, no decisiones implementadas:**
+**Fecha de registro:** 2026-10-13 (obtenida con `Get-Date`).
+**Procedencia:** las referencias al libro y los cálculos del asesor indicados
+abajo fueron aportados por el asesor (Claude), a partir de la lectura del PDF y de cálculos propios, y transmitidos por el director; Codex no leyó el PDF ni reprodujo
+esos cálculos en esta tarea. Las lecturas del código se distinguen expresamente.
 
-- La hoja del docente es un ejemplo para x²−2; ¿confirma que para otras ecuaciones
-  f″ debe evaluarse en cada xₖ? (H14).
-- **Leído del cambio autorizado:** H13 ya redimensiona con parámetros manuales;
-  queda pendiente su verificación en producción con x₀=2.5.
-- (H16) **Propuesta del asesor, no implementada:** poner la tolerancia en una celda visible y editable del Excel, que las fórmulas lean, y que el generador la rellene con el valor de la interfaz. ¿La acepta el docente, o prefiere otra solución?
-- ¿Qué g(x) automática usar en Punto Fijo y en las capas base de Aitken/Steffensen? (H1).
+0. **Libro de referencia — indicación recibida del docente:** Nieves Hurtado
+   y Domínguez Sánchez, *Métodos numéricos aplicados a la ingeniería*,
+   Patria, 2017. Página del PDF = página del libro + 17.
+   **Respuesta recibida:** el docente señaló ese libro como lo más cercano
+   a lo académico, con ejercicios de estándares bien definidos.
+   **Inventario bibliográfico comunicado por el asesor:** con definición propia
+   de bisección, posición falsa, secante, punto fijo, Newton-Raphson, Aitken
+   y Steffensen. Halley/Richmond, Chebyshev y una fórmula con raíz cuadrada
+   aparecen como problemas (pp. 148, 152-153). No se encontró Von Mises,
+   Newton Modificado, Super Halley ni Ostrowsky. El PDF no incluye el apéndice
+   de respuestas.
+   **Restricción recomendada por el asesor (no es asesoría legal; a tratar con el director y la universidad):** el libro tiene derechos reservados
+   y el repositorio es público; no copiar texto del libro ni subir el PDF.
+   Registrar solo referencias de página y datos numéricos.
 
-**Propuesta del director para convergencia, no implementada:**
+1. **H14 — respuesta recibida:** sí, «lo más completo y académico posible»;
+   f″ en cada xₖ en las seis plantillas: Newton Modificado, Newton 2º orden,
+   Chebyshev, Halley, Super Halley y Ostrowsky.
+   **Estado:** listo para implementar.
 
-1. Un método solo declara «convergió» si además |f(raíz)| es pequeño, con mensaje
-   claro, manteniendo idénticas las tablas de iteración.
-2. Error absoluto de respaldo en todos los métodos, como Newton-Raphson y Punto Fijo.
-3. Inaplicable siempre con `root=None`.
+2. **Política de convergencia (H7 a H11, H15) — respuesta recibida:** afirmativa
+   a exigir |f(raíz)| pequeño, error absoluto de respaldo, inaplicable sin raíz
+   y columna |f(xₖ)| en el Excel.
+   **Umbral aprobado por el docente, según la respuesta transmitida:**
+   ε = máx(1e-12, 1e-6·|f(x₀)|).
+   **Procedencia comunicada por el asesor:** propuesta suya; constantes sin
+   respaldo de libro. La forma sigue a Kelley, SIAM 2003, §1.5:
+   ‖F(x)‖ ≤ τᵣ‖F(x₀)‖ + τₐ (fórmula citada en otras fuentes;
+   no vista en el extracto).
+   **Propuesta del asesor, pendiente:** pasar a la suma,
+   ε = 1e-6·|f(x₀)| + 1e-12.
+   **Referencias del asesor al libro del docente:** p. 51, |f(xᵢ)| < ε;
+   Algoritmo 2.2, p. 67, criterios separados: distancia/EPS y |f|/EPS1,
+   con terminación al cumplirse cualquiera. **Comparación del asesor:**
+   la política aprobada es más estricta, pues exige ambos.
+   **Abierto:** si se adopta el vocabulario y las dos tolerancias del libro.
 
-**Hipótesis de impacto, no ejecutada en Excel:** si se cambia únicamente la app,
-el Excel descargado seguiría diciendo «SI» donde la app dijera «NO».
-Por ello, corregirlo exige antes los tests de las plantillas (H3) y mantener
-coherentes ambos lados.
+3. **H1 — respuesta recibida:** despeje clásico con |g′(x₀)| < 1 por defecto,
+   con opción de elegir o escribir la g propia; mostrar siempre cuál g se usa;
+   el despeje más sencillo, o cada despeje con un algoritmo claro explicado
+   en Practicar.
+   **Referencias del asesor al libro (pp. 49, 56, 64):** cinco formas:
+   despejar el segundo término; despejar x del primer término; factorizar x
+   y despejarla; sumar x a cada lado; Newton. Selección por |g′(x₀)| < 1
+   y preferencia por el menor.
+   **Medición del asesor (SymPy, fuera del repo, no reproducida por Codex):**
+   x³−2x−5, x₀=2, |g′|: aislar x³ y extraer raíz 0.154;
+   aislar el término lineal 6; aislar x³ y dividir entre x² 1.75;
+   sumar x 11; relajación 0.
+   x²−2, x₀=1: `2/x` 2 (ciclo 1, 2, 1, 2); `x²+x−2` 3;
+   relajación 0; promedio `(x+2/x)/2` 0.5 (es la g de Newton);
+   la hoja del docente `(x+2)/(x+1)` 0.25, equivalente a `1+1/(x+1)`.
+   **Contraejemplo del libro, p. 57, reproducido por el asesor:**
+   g = (−x³−2x²+20)/10, x₀=1: |g′(x₀)|=0.7 y diverge oscilando;
+   |g′(1.7)|=1.547. No reproducido por Codex.
+   **Propuestas del asesor, pendientes:** columna |g′(xᵢ)| en Punto Fijo;
+   gráfica de g′ con banda ±1 (pp. 60-62); rotular el tipo de comportamiento
+   por el signo y tamaño de g′ (pp. 59-60); mostrar el orden de convergencia
+   (pp. 62-63); criterio de contracción en un intervalo.
+   **Abierto:** lista de estrategias; textos explicativos; despeje por fracción
+   continua de su hoja.
+   **Fases propuestas por el asesor:** generador puro con tests; backend y Excel;
+   interfaz; Practicar.
+
+4. **H16 — respuesta recibida:** afirmativa a una celda visible y editable
+   con la tolerancia.
+   **Criterio asumido, no confirmado:** error relativo en %.
+
+5. **Fichas de teoría — respuesta recibida:** el docente las revisará; esperar.
+
+6. **Punto Fijo — respuesta recibida:** dejar iterar aunque |g′(x₀)| ≥ 1
+   y mostrar la divergencia; el docente pidió que el asesor proponga la regla.
+   **Propuesta del asesor, sustituye a las anteriores (1e150 y factor 1e6):**
+   (D1) parar si xₖ, g(xₖ) o f(xₖ) no son finitos;
+   (D2) parar y rotular «diverge» si |f(xₖ)| crece en 4 iteraciones consecutivas;
+   (D3) tope de iteraciones rotulado «no convergió en N iteraciones».
+   **Procedencia comunicada por el asesor:** libro pp. 51-52, parada si f(xᵢ)
+   no tiende a cero; p. 54, MAXIT. En el ejemplo de cos x−3x:
+   residuos 0.254, 0.575, 1.384, 2.796 y 6.901; cuatro crecimientos consecutivos,
+   parada del libro en la cuarta iteración. El 4 es elección del asesor
+   calibrada sobre ese ejemplo. Precedente de software:
+   `DivergenceStopCriterion` de Math.NET.
+   **Alcance de la propuesta:** solo Punto Fijo, Aitken y Steffensen; heurística,
+   no registrada como regla aprobada por el docente.
+   **Leído de los tests:** `test_cubica_gx_repulsora_inaplicable_sin_iteraciones`
+   (`backend/test/test_punto_fijo.py:54-64`) fija hoy el comportamiento contrario
+   y deberá reescribirse.
+   **Opción del asesor, pendiente:** detectar ciclos de periodo 2.
+
+7. **Newton 2º orden — respuesta recibida:** afirmativa a evaluar las dos ramas
+   y elegir la de menor |f|; el docente pidió que se muestren
+   x⁺, x⁻, |f(x⁺)| y |f(x⁻)|.
+   **Nota del asesor (álgebra propia; falta comprobar la página del PDF):**
+   la fórmula de la p. 152 (2.33 b) equivale a la rama «+√»;
+   la rama «−» es el otro cero del modelo cuadrático local.
+
+8. **Ejercicios — respuesta recibida:** el docente armará un repositorio.
+   **Uso previsto, propuesta del asesor:** banco de validación
+   y contenido de Practicar.
+
+9. **H17 — CANDIDATO (leído y calculado): Steffensen y el inicio de Aitken
+   difieren del libro.**
+   **Leído del código:** `steffensen.py` declara tres capas que replican
+   `amburger.xlsx` (2-16); construye la secuencia PF y luego la capa Aitken
+   desde `pf[1]` (135-144), sin reiniciar PF desde cada valor acelerado.
+   Aitken inicia en `pf[1]`: `aitken.py:120-125`.
+   **Referencias del asesor al libro:** Algoritmo 2.5, p. 86, con reinicio;
+   Aitken, ec. 2.21, p. 83, inicia en x₀.
+   **Calculado por el asesor (ejemplo 2.2), no reproducido por Codex:**
+   x′₀=1.37081, luego 1.36881.
+   **Estado:** abierto; el docente decide qué definición usa la plataforma.
+
+10. **Errata del libro señalada por el asesor (p. 84):**
+    imprime x′₁=1.36566; el cálculo del asesor da 1.36926;
+    x′₂=1.36889 coincide. No comprobado por Codex.
+
+11. **Casos del libro reproducidos por el asesor, propuestos para un banco
+    de validación:** ejemplo 2.2 (p. 56), forma 3 (p. 57),
+    ejemplo 2.3 Newton (p. 66), |g′(2)| de la p. 64
+    (0.1336, 1.111, 8, 0.08163) y residuos de cos x−3x (pp. 51-52).
+    Sin texto del libro: solo datos. No reproducidos por Codex.
+
+**Orden de trabajo propuesto por el asesor**
+
+1. Registrar las decisiones.
+2. H14.
+3. Banco de casos del libro: solo tests, sin tocar el motor.
+4. H16.
+5. Política de convergencia.
+6. Newton 2º orden.
+7. Punto Fijo por fases.
+8. Practicar cuando lleguen los ejercicios del docente.
+
+**En paralelo, propuesta del asesor:** integración continua con Python 3.11 y README.
 
 **Deuda técnica:**
 - ✅ **AUDITADO (2026-07-28): ninguna otra llamada tiene el fallo de H5.** Se revisaron las
